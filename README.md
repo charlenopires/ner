@@ -22,9 +22,10 @@
 
 | Funcionalidade | Descrição |
 |---|---|
-| 🧩 **Pipeline Híbrido** | Motor de Regras (gazetteers + regex) + CRF Linear-Chain + Viterbi |
+| 🧩 **Pipeline Expandido** | Regras · CRF · HMM · MaxEnt · Perceptron · Span-based |
 | ⚡ **Tempo Real** | Eventos do pipeline transmitidos via WebSocket — passo a passo |
-| 🎛️ **4 Modos de Algoritmo** | Híbrido · Regras · CRF · Features — troque sem recarregar |
+| 🎛️ **8 Modos de Algoritmo** | Hybrid · Rules · CRF · HMM · MaxEnt · Perceptron · Span · Features |
+| 🔠 **5 Tokenizadores** | Standard · Char-level · Aggressive · Conservative · BPE-lite |
 | 🌐 **Corpus PT-BR** | 40+ textos anotados: Saúde · Religião · História · Bem-Estar · Esportes |
 | 📊 **Tabela Viterbi** | Visualização das probabilidades de transição token a token |
 | 🎨 **UI Premium** | Dark mode · glassmorphism · animações suaves |
@@ -70,24 +71,36 @@
 
 ## 🎛️ Modos de Algoritmo
 
-O usuário pode trocar o modo sem recarregar a página:
+O sistema suporta 8 estratégias de reconhecimento:
 
-| Modo | Ícone | Descrição |
-|---|---|---|
-| **Híbrido** | ⚡ | Regras + CRF + Viterbi — melhor precisão (padrão) |
-| **Regras** | 📋 | Apenas gazetteers e padrões regex |
-| **CRF** | 📈 | Apenas CRF + Viterbi — sem regras |
-| **Features** | 🔬 | Apenas tokenização + extração de features |
+| Modo | Descrição |
+|---|---|
+| **Híbrido** | ⚡ Combina Regras + CRF/Viterbi (melhor precisão) |
+| **HMM** | 🎲 Hidden Markov Model (Probabilístico Genarativo) |
+| **MaxEnt** | ⚖️ Maximum Entropy / Regressão Logística (Discriminativo) |
+| **Perceptron** | 🧠 Averaged Perceptron (Discriminativo Online) |
+| **Span-based** | 📏 Classificação de trechos (Span) para entidades aninhadas/longas |
+| **Regras** | 📋 Apenas gazetteers e padrões regex |
+| **CRF** | 📈 Apenas CRF + Viterbi (sem regras) |
+| **Features** | 🔬 Apenas tokenização + extração de features |
+
+### Tokenização
+
+O usuário também pode escolher entre **5 estratégias de tokenização** na interface (Char-level, Aggressive, etc.) para lidar com diferentes morfologias.
 
 ### Protocolo WebSocket
 
-O frontend envia JSON com o modo escolhido:
+O frontend envia JSON com o modo e tokenizador escolhidos:
 
 ```json
-{ "text": "Santos Dumont chegou em Paris em 1906.", "mode": "hybrid" }
+{ 
+  "text": "Santos Dumont chegou em Paris.", 
+  "mode": "hmm",
+  "tokenizer_mode": "standard"
+}
 ```
 
-Valores de `mode`: `hybrid` · `rules_only` · `crf_only` · `features_only`
+Valores de `mode`: `hybrid` · `rules_only` · `crf_only` · `features_only` · `hmm` · `max_ent` · `perceptron` · `span_based`
 
 ---
 

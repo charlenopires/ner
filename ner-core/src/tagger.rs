@@ -23,16 +23,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::tokenizer::Token;
 
-/// Categorias de entidade reconhecidas pelo sistema NER
+/// Categorias de entidade reconhecidas pelo sistema NER.
+///
+/// Estas categorias definem o "vocabulário" semântico do modelo.
+/// Adicionar novas categorias exigiria retreinar o modelo e atualizar o corpus.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EntityCategory {
-    /// Pessoa física (políticos, atletas, celebridades, etc.)
+    /// **Pessoa**: Nomes de humanos reais, fictícios ou grupos musicais. Ex: "Machado de Assis", "Beatles".
     Per,
-    /// Organização (empresas, órgãos governamentais, times, partidos)
+    /// **Organização**: Empresas, instituições, órgãos públicos, times. Ex: "Google", "STF", "Flamengo".
     Org,
-    /// Localização geográfica (cidades, estados, países, rios)
+    /// **Localização**: Países, cidades, estados, rios, montanhas. Ex: "Brasil", "Tietê", "Everest".
     Loc,
-    /// Miscelânea (eventos, produtos, leis, doenças, etc.)
+    /// **Miscelânea**: O que não se encaixa nas anteriores (eventos, obras de arte, leis). Ex: "Copa 2014", "Lei Áurea".
     Misc,
 }
 
@@ -79,14 +82,17 @@ impl EntityCategory {
     }
 }
 
-/// Tag BIO aplicada a um token
+/// Tag BIO aplicada a um token.
+///
+/// O esquema BIO permite representar entidades de múltiplos tokens.
+/// O modelo preverá uma dessas tags para cada palavra.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Tag {
-    /// B-XXX: início de uma entidade
+    /// **Begin**: Marca o INÍCIO de uma entidade. Ex: **São** (B-LOC) Paulo.
     Begin(EntityCategory),
-    /// I-XXX: continuação de uma entidade
+    /// **Inside**: Marca a CONTINUAÇÃO de uma entidade. Ex: São **Paulo** (I-LOC).
     Inside(EntityCategory),
-    /// O: fora de qualquer entidade
+    /// **Outside**: O token não faz parte de nenhuma entidade.
     Outside,
 }
 
@@ -100,7 +106,8 @@ impl Tag {
         }
     }
 
-    /// Índice numérico da tag para matrizes CRF/Viterbi
+    /// Índice numérico da tag para matrizes CRF/Viterbi.
+    /// Mapeia cada possibilidade para um inteiro 0..8.
     pub fn index(&self) -> usize {
         match self {
             Tag::Outside => 0,
@@ -211,7 +218,15 @@ pub struct EntitySpan {
     pub source: String,
 }
 
-/// Converte uma sequência de tokens taggeados em spans de entidades
+/// Converte uma sequência de tokens classificados (BIO) em spans de entidades.
+///
+/// Implementa a máquina de estados finita do esquema BIO para reconstruir as entidades completas:
+/// - Inicia uma nova entidade ao encontrar `B-XXX`.
+/// - Continua a entidade enquanto encontrar `I-XXX` da **mesma** categoria.
+/// - Finaliza a entidade ao encontrar `O`, `B-YYY` ou `I-YYY` (de outra categoria).
+///
+/// # Exemplo
+/// `[B-PER, I-PER, O, B-LOC]` -> `[EntitySpan(PER), EntitySpan(LOC)]`
 pub fn tokens_to_spans(tagged: &[TaggedToken], original_text: &str) -> Vec<EntitySpan> {
     let mut spans = Vec::new();
     let mut i = 0;

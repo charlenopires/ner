@@ -531,13 +531,21 @@ pub fn extract_gazetteers_from_corpus() -> (
 /// Textos de demonstração para a interface web
 pub fn demo_texts() -> Vec<(&'static str, &'static str)> {
     vec![
-        ("Saúde", "O Hospital Albert Einstein em São Paulo e o Instituto Butantan, com apoio da Fiocruz e da Anvisa, lideram pesquisas sobre vacinas e tratamentos oncológicos no Brasil."),
-        ("Religião", "Nossa Senhora de Aparecida é a padroeira do Brasil. O padre Fábio de Melo e o escritor espírita Allan Kardec influenciaram profundamente a espiritualidade brasileira."),
-        ("História", "Santos Dumont realizou seu primeiro voo em Paris em 1906. Zumbi dos Palmares liderou a resistência negra. Princesa Isabel assinou a Lei Áurea em 1888 abolindo a escravidão."),
-        ("Bem-Estar", "A nutricionista Ana Paula Torres indica que a prática do yoga, da meditação e da dieta mediterrânea contribui para reduzir o estresse e prevenir doenças cardíacas."),
-        ("Esportes", "Ayrton Senna foi tricampeão mundial pela McLaren. Beatriz Souza ganhou ouro no judô em Paris. Pelé é o maior artilheiro da Seleção Brasileira e ídolo no Maracanã."),
-        ("Economia", "A Petrobras e a Vale são as maiores empresas do Brasil listadas na B3. A Embraer assinou parceria com a Boeing para desenvolver aeronaves no interior de São Paulo."),
-        ("Ciência", "O INPE monitora o desmatamento da Floresta Amazônica. A Universidade de São Paulo é a melhor da América Latina. A Nubank revolucionou o setor bancário digital."),
-        ("Cultura", "Jorge Amado imortalizou a Bahia com Gabriela, Cravo e Canela. Carmen Miranda levou o Brasil ao cinema americano. A Semana de Arte Moderna de 1922 fundou o Modernismo."),
+        (
+            "Saúde",
+            "O Hospital Albert Einstein, localizado no Morumbi em São Paulo, é uma referência internacional em medicina de alta complexidade. Juntamente com o Instituto Butantan e a Fundação Oswaldo Cruz (Fiocruz), a instituição tem liderado pesquisas inovadoras no combate a doenças tropicais. A Agência Nacional de Vigilância Sanitária (Anvisa) aprovou recentemente novos protocolos clínicos densenvolvidos pela pesquisadora Margareth Dalcolmo para o tratamento de variantes da Covid-19.",
+        ),
+        (
+            "História",
+            "Em 7 de setembro de 1822, Dom Pedro I proclamou a Independência do Brasil às margens do Rio Ipiranga. Décadas mais tarde, a Princesa Isabel sancionou a Lei Áurea em 13 de maio de 1888, encerrando oficialmente o ciclo da escravidão no país. Figuras como Zumbi dos Palmares, líder do maior quilombo das Américas, e Tiradentes, mártir da Inconfidência Mineira, são celebrados como heróis nacionais que lutaram pela liberdade e justiça social.",
+        ),
+        (
+            "Tecnologia",
+            "A startup brasileira Nubank, fundada por David Vélez, Cristina Junqueira e Edward Wible, revolucionou o setor bancário na América Latina. Com sede em São Paulo, a empresa expandiu operações para o México e Colômbia, alcançando mais de 90 milhões de clientes. Recentemente, a Embraer anunciou uma parceria estratégica com a Boeing para o desenvolvimento de combustíveis sustentáveis de aviação, reforçando a posição do Brasil como líder em tecnologia aeroespacial.",
+        ),
+        (
+            "Cultura",
+            "A Semana de Arte Moderna de 1922, realizada no Theatro Municipal de São Paulo, contou com a participação de Mário de Andrade, Oswald de Andrade e Tarsila do Amaral. O evento marcou o início do Modernismo no Brasil, rompendo com o conservadorismo acadêmico. Na música, Heitor Villa-Lobos e, posteriormente, Carmen Miranda, levaram a identidade cultural brasileira para os palcos internacionais, consolidando o samba e a bossa nova como gêneros de exportação.",
+        ),
     ]
 }

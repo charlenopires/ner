@@ -961,6 +961,28 @@
               rows="5"></textarea>
           </div>
 
+          <!-- Tokenizer Mode Selector -->
+          <div class="algo-mode-panel">
+            <span class="algo-mode-label">🔠 Tokenizador:</span>
+            <div class="algo-mode-toggle" id="tokenizer-mode-toggle">
+              <button class="mode-btn active" data-mode="standard" onclick="selectTokenizer(this)">
+                Standard
+              </button>
+              <button class="mode-btn" data-mode="aggressive" onclick="selectTokenizer(this)">
+                Aggressive
+              </button>
+              <button class="mode-btn" data-mode="conservative" onclick="selectTokenizer(this)">
+                Conservative
+              </button>
+              <button class="mode-btn" data-mode="bpe_lite" onclick="selectTokenizer(this)">
+                BPE Lite
+              </button>
+              <button class="mode-btn" data-mode="char_level" onclick="selectTokenizer(this)">
+                Char
+              </button>
+            </div>
+          </div>
+
           <!-- Algorithm Mode Selector -->
           <div class="algo-mode-panel">
             <span class="algo-mode-label">⚙️ Algoritmo:</span>
@@ -968,14 +990,23 @@
               <button class="mode-btn active" data-mode="hybrid" onclick="selectMode(this)">
                 <span class="mode-icon">⚡</span> Híbrido
               </button>
+              <button class="mode-btn" data-mode="hmm" onclick="selectMode(this)">
+                <span class="mode-icon">🎲</span> HMM
+              </button>
+              <button class="mode-btn" data-mode="max_ent" onclick="selectMode(this)">
+                <span class="mode-icon">⚖️</span> MaxEnt
+              </button>
+              <button class="mode-btn" data-mode="perceptron" onclick="selectMode(this)">
+                <span class="mode-icon">🧠</span> Percep
+              </button>
+              <button class="mode-btn" data-mode="span_based" onclick="selectMode(this)">
+                <span class="mode-icon">📏</span> Span
+              </button>
               <button class="mode-btn" data-mode="rules_only" onclick="selectMode(this)">
                 <span class="mode-icon">📋</span> Regras
               </button>
               <button class="mode-btn" data-mode="crf_only" onclick="selectMode(this)">
                 <span class="mode-icon">📈</span> CRF
-              </button>
-              <button class="mode-btn" data-mode="features_only" onclick="selectMode(this)">
-                <span class="mode-icon">🔬</span> Features
               </button>
             </div>
             <span class="mode-desc" id="mode-desc">Regras + CRF/Viterbi (melhor precisão)</span>
@@ -1471,9 +1502,13 @@
       setStatus('processing', 'Pipeline em execução...');
 
       // Send to WebSocket — now as JSON with mode
-      const modeBtn = document.querySelector('.mode-btn.active');
+      const modeBtn = document.querySelector('#algo-mode-toggle .mode-btn.active');
       const mode = modeBtn ? modeBtn.dataset.mode : 'hybrid';
-      ws.send(JSON.stringify({ text, mode }));
+
+      const tokBtn = document.querySelector('#tokenizer-mode-toggle .mode-btn.active');
+      const tokenizer_mode = tokBtn ? tokBtn.dataset.mode : 'standard';
+
+      ws.send(JSON.stringify({ text, mode, tokenizer_mode }));
     }
 
     function setBtnReady() {
@@ -1490,13 +1525,22 @@
       rules_only: 'Apenas motor de regras e gazetteers',
       crf_only: 'Apenas CRF + Viterbi (sem regras)',
       features_only: 'Apenas tokenização + features (sem classificação)',
+      hmm: 'Hidden Markov Model (Probabilístico)',
+      max_ent: 'Maximum Entropy (Logistic Regression)',
+      perceptron: 'Averaged Perceptron (Discriminativo Online)',
+      span_based: 'Span-based NER (Detecção de trechos)',
     };
 
     function selectMode(btn) {
-      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#algo-mode-toggle .mode-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const descEl = document.getElementById('mode-desc');
       if (descEl) descEl.textContent = MODE_DESCRIPTIONS[btn.dataset.mode] || '';
+    }
+
+    function selectTokenizer(btn) {
+      document.querySelectorAll('#tokenizer-mode-toggle .mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
     }
 
     // ---------------------------------------------------------------

@@ -11,46 +11,72 @@ use serde::{Deserialize, Serialize};
 use crate::features::{extract_features, FeatureVector};
 use crate::model::NerModel;
 use crate::tagger::{tokens_to_spans, EntitySpan, Tag, TaggedToken};
-use crate::tokenizer::{tokenize, Token};
+use crate::tokenizer::{tokenize_with_mode, Token, TokenizerMode};
 use crate::viterbi::{viterbi_decode, ViterbiStep};
 
-/// Modo de operação do algoritmo NER
+/// Modo de operação do algoritmo NER.
 ///
 /// O usuário pode escolher qual combinação de algoritmos usar para analisar o texto.
+/// Cada modo oferece um balanço diferente entre precisão e explicabilidade.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AlgorithmMode {
-    /// Usa regras + CRF/Viterbi (padrão) — produz os melhores resultados
+    /// **Híbrido (Recomendado)**: Combina Regras + CRF + Viterbi.
+    /// - Primeiro aplica regras determinísticas (gazetteers, regex).
+    /// - Onde as regras não cobrem, usa o modelo estatístico (CRF).
+    /// - Produz os melhores resultados gerais.
     Hybrid,
-    /// Usa apenas o motor de regras (gazetteers + regex)
+    /// **Apenas Regras**: Usa somente gazetteers e padrões.
+    /// Ítil para debugging ou quando se quer controle total sobre a saída.
+    /// Não generaliza para entidades não vistas.
     RulesOnly,
-    /// Usa apenas o CRF + Viterbi (sem regras)
+    /// **Apenas CRF**: Usa apenas o modelo estatístico.
+    /// Ignora listas manuais, dependendo totalmente do aprendizado de máquina.
+    /// Bom para avaliar a capacidade de generalização do modelo.
     CrfOnly,
-    /// Apenas tokenização e features (sem classificação)
+    /// **Apenas Features**: Executa tokenização e extração de features, mas não classifica.
+    /// Usado para inspecionar o que o modelo "vê" (ex: quais sufixos foram detectados).
     FeaturesOnly,
+    /// **HMM (Hidden Markov Model)**: Modelo probabilístico baseado em transições e emissões simples.
+    /// Menos preciso que o CRF, mas treina muito rápido.
+    Hmm,
+    /// **MaxEnt (Entropia Máxima)**: Classificador logístico que não considera a sequência (histórico).
+    /// Classifica cada token independentemente.
+    MaxEnt,
+    /// **Perceptron Médio**: Algoritmo online simples e eficaz.
+    /// Aprende iterativamente a separar as classes.
+    Perceptron,
+    /// **Span-Based**: Abordagem experimental que classifica spans inteiros em vez de tokens.
+    SpanBased,
 }
 
 impl Default for AlgorithmMode {
     fn default() -> Self { AlgorithmMode::Hybrid }
 }
 
-/// Eventos emitidos pelo pipeline durante o processamento
-/// Cada evento corresponde a um passo visualizável na interface
+/// Eventos emitidos pelo pipeline durante o processamento.
+///
+/// Estes eventos permitem que a UI (frontend) visualize o "raciocínio" do modelo passo-a-passo.
+/// Cada variante carrega os dados necessários para renderizar uma etapa da visualização.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]
 pub enum PipelineEvent {
-    /// Tokenização concluída
+    /// **Passo 1**: Tokenização concluída.
+    /// Retorna a lista de tokens e o total.
     TokenizationDone {
         tokens: Vec<Token>,
         total: usize,
     },
-    /// Features extraídas para um token
+    /// **Passo 2**: Features extraídas para um token específico.
+    /// Mostra quais atributos (ex: "é maiúscula", "sufixo=ão") foram ativados.
     FeaturesComputed {
         token_index: usize,
         token_text: String,
-        top_features: Vec<(String, f64)>, // top 10 features mais relevantes
+        /// Lista das 10 features com maiores pesos para visualização.
+        top_features: Vec<(String, f64)>,
     },
-    /// Uma regra foi aplicada a um token
+    /// **Passo 3 (Opcional)**: Uma regra manual foi aplicada com sucesso.
+    /// Indica que o sistema "cortou caminho" usando conhecimento prévio.
     RuleApplied {
         token_index: usize,
         token_text: String,
@@ -58,12 +84,14 @@ pub enum PipelineEvent {
         rule_name: String,
         confidence: f64,
     },
-    /// Um passo do algoritmo Viterbi foi processado
+    /// **Passo 4**: Um passo do algoritmo de decodificação Viterbi.
+    /// Mostra as probabilidades acumuladas para cada tag naquele ponto da frase.
     ViterbiStep {
         step: ViterbiStep,
         token_text: String,
     },
-    /// Tag final atribuída a um token
+    /// **Passo Final**: Tag definitiva atribuída a um token.
+    /// Pode vir de uma regra ou do cálculo do Viterbi/CRF.
     TagAssigned {
         token_index: usize,
         token_text: String,
@@ -71,47 +99,62 @@ pub enum PipelineEvent {
         confidence: f64,
         source: String, // "rule" ou "crf"
     },
-    /// Pipeline concluído com as entidades identificadas
+    /// **Conclusão**: O processo terminou com sucesso.
+    /// Retorna todas as entidades estruturadas e estatísticas de tempo.
     Done {
         entities: Vec<EntitySpan>,
         tagged_tokens: Vec<TaggedToken>,
         total_tokens: usize,
         processing_ms: u64,
     },
-    /// Erro durante processamento
+    /// **Falha**: Ocorreu um erro irrecuperável.
     Error {
         message: String,
     },
 }
 
-/// O pipeline NER principal
+/// O pipeline NER principal.
 ///
-/// Encapsula o modelo e oferece dois modos de execução:
-/// - [`analyze`]: execução síncrona, retorna resultado direto
-/// - [`analyze_streaming`]: execução com eventos para WebSocket
+/// Atua como o **controlador** do sistema, orquestrando:
+/// 1. Tokenização do texto bruto.
+/// 2. Extração de features para cada token.
+/// 3. Aplicação opcional de regras manuais.
+/// 4. Decodificação Viterbi (CRF) para predição probabilística.
+/// 5. Fusão dos resultados e construção das entidades finais.
+///
+/// # Modos de Uso
+/// - **Sync**: Método `analyze` para scripts e chamadas diretas.
+/// - **Streaming**: Método `analyze_streaming` para UIs reativas (via WebSocket).
 pub struct NerPipeline {
     pub model: NerModel,
 }
 
 impl NerPipeline {
-    /// Cria o pipeline com o modelo padrão baseado no corpus PT-BR
+    /// Cria o pipeline carregando o modelo padrão com pesos heurísticos.
     pub fn new() -> Self {
         Self {
             model: NerModel::default(),
         }
     }
 
-    /// Análise direta (sem streaming) — retorna entidades e tokens anotados
+    /// Processa o texto de forma síncrona e retorna o resultado final.
+    ///
+    /// Ideal para processamento em lote ou quando não há necessidade de feedback visual.
+    /// Usa internamente o modo `Hybrid` e tokenização `Standard`.
     pub fn analyze(&self, text: &str) -> (Vec<TaggedToken>, Vec<EntitySpan>) {
-        self.analyze_with_mode(text, AlgorithmMode::Hybrid)
+        self.analyze_with_mode(text, AlgorithmMode::Hybrid, TokenizerMode::Standard)
     }
 
-    /// Análise direta com modo de algoritmo escolhido
-    pub fn analyze_with_mode(&self, text: &str, mode: AlgorithmMode) -> (Vec<TaggedToken>, Vec<EntitySpan>) {
+    /// Processa o texto de forma síncrona, configurando o algoritmo e tokenizador.
+    ///
+    /// Útil para debugging ou comparações de performance entre modos.
+    pub fn analyze_with_mode(&self, text: &str, mode: AlgorithmMode, tokenizer_mode: TokenizerMode) -> (Vec<TaggedToken>, Vec<EntitySpan>) {
         let (tx, rx) = mpsc::channel();
-        self.analyze_streaming(text, mode, tx);
+        self.analyze_streaming(text, mode, tokenizer_mode, tx);
         let mut tagged = vec![];
         let mut entities = vec![];
+        
+        // Consome todos os eventos até o fim
         while let Ok(event) = rx.recv() {
             if let PipelineEvent::Done {
                 tagged_tokens,
@@ -126,16 +169,23 @@ impl NerPipeline {
         (tagged, entities)
     }
 
-    /// Análise com streaming de eventos via canal mpsc
+    /// Executa o pipeline enviando eventos de progresso em tempo real.
     ///
-    /// Envia [`PipelineEvent`]s para o canal à medida que cada passo é concluído.
-    /// O canal pode ser conectado a um WebSocket para transmissão em tempo real.
-    /// O modo pode ser `Hybrid`, `RulesOnly`, `CrfOnly` ou `FeaturesOnly`.
-    pub fn analyze_streaming(&self, text: &str, mode: AlgorithmMode, tx: mpsc::Sender<PipelineEvent>) {
+    /// Este método é o coração da interface visual. Ele não retorna valores diretamente,
+    /// mas sim "empurra" `PipelineEvent`s pelo canal `tx`.
+    ///
+    /// # Fluxo de Eventos
+    /// 1. `TokenizationDone`: Tokens gerados.
+    /// 2. `FeaturesComputed` (Loop): Features de cada token (se aplicável).
+    /// 3. `RuleApplied` (Loop): Regras que "bateram" (se modo híbrido).
+    /// 4. `ViterbiStep` (Loop): Passos do algoritmo de decodificação.
+    /// 5. `TagAssigned` (Loop): Decisão final para cada token.
+    /// 6. `Done`: Resultado final consolidado.
+    pub fn analyze_streaming(&self, text: &str, mode: AlgorithmMode, tokenizer_mode: TokenizerMode, tx: mpsc::Sender<PipelineEvent>) {
         let start = std::time::Instant::now();
 
         // === Passo 1: Tokenização ===
-        let tokens = tokenize(text);
+        let tokens = tokenize_with_mode(text, tokenizer_mode);
         let total = tokens.len();
         let _ = tx.send(PipelineEvent::TokenizationDone {
             tokens: tokens.clone(),
@@ -152,10 +202,24 @@ impl NerPipeline {
             return;
         }
 
-        // === Passo 2: Extração de Features ===
+        match mode {
+            AlgorithmMode::Hybrid | AlgorithmMode::RulesOnly | AlgorithmMode::CrfOnly | AlgorithmMode::FeaturesOnly => {
+                 self.analyze_streaming_standard(text, &tokens, mode, &tx, start);
+            }
+            AlgorithmMode::Hmm | AlgorithmMode::MaxEnt | AlgorithmMode::Perceptron => {
+                 self.analyze_streaming_ml(text, &tokens, mode, &tx, start);
+            }
+             AlgorithmMode::SpanBased => {
+                 self.analyze_streaming_span(text, &tokens, &tx, start);
+             }
+        }
+    }
+
+    fn analyze_streaming_standard(&self, text: &str, tokens: &[Token], mode: AlgorithmMode, tx: &mpsc::Sender<PipelineEvent>, start: std::time::Instant) {
+         // === Passo 2: Extração de Features ===
         let gazetteers = self.model.gazetteers();
         let feature_vectors: Vec<FeatureVector> =
-            extract_features(&tokens, &gazetteers);
+            extract_features(tokens, &gazetteers);
 
         for (i, fv) in feature_vectors.iter().enumerate() {
             // Envia as top 10 features por importância
@@ -178,7 +242,7 @@ impl NerPipeline {
         let mut rule_tags: Vec<Option<(Tag, String, f64)>> = vec![None; tokens.len()];
 
         if mode != AlgorithmMode::CrfOnly && mode != AlgorithmMode::FeaturesOnly {
-            let rule_results = self.model.rule_engine.apply(&tokens);
+            let rule_results = self.model.rule_engine.apply(tokens);
             for (i, maybe_match) in rule_results.iter().enumerate() {
                 if let Some(rm) = maybe_match {
                     let _ = tx.send(PipelineEvent::RuleApplied {
@@ -225,7 +289,7 @@ impl NerPipeline {
             let _ = tx.send(PipelineEvent::Done {
                 entities,
                 tagged_tokens,
-                total_tokens: total,
+                total_tokens: tokens.len(),
                 processing_ms: start.elapsed().as_millis() as u64,
             });
             return;
@@ -311,8 +375,130 @@ impl NerPipeline {
         let _ = tx.send(PipelineEvent::Done {
             entities: entities.clone(),
             tagged_tokens: tagged_tokens.clone(),
-            total_tokens: total,
+            total_tokens: tokens.len(),
             processing_ms: elapsed,
+        });
+    }
+
+    fn analyze_streaming_ml(&self, text: &str, tokens: &[Token], mode: AlgorithmMode, tx: &mpsc::Sender<PipelineEvent>, start: std::time::Instant) {
+        // Envia features se for MaxEnt ou Perceptron
+        if mode == AlgorithmMode::MaxEnt || mode == AlgorithmMode::Perceptron {
+             let gazetteers = self.model.gazetteers();
+             let feature_vectors = extract_features(tokens, &gazetteers);
+             for (i, fv) in feature_vectors.iter().enumerate() {
+                // Top features logic clone from standard
+                let mut sorted: Vec<(String, f64)> = fv.features.iter().map(|(k, v)| (k.clone(), *v)).collect();
+                sorted.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+                sorted.truncate(10);
+                let _ = tx.send(PipelineEvent::FeaturesComputed {
+                    token_index: i,
+                    token_text: tokens[i].text.clone(),
+                    top_features: sorted,
+                });
+            }
+        }
+
+        let token_strs: Vec<String> = tokens.iter().map(|t| t.text.clone()).collect();
+        let pred_tags = match mode {
+            AlgorithmMode::Hmm => self.model.hmm.predict(&token_strs),
+            AlgorithmMode::MaxEnt => self.model.maxent.predict(&token_strs),
+            AlgorithmMode::Perceptron => self.model.perceptron.predict(&token_strs),
+            _ => unreachable!(),
+        };
+
+        let tagged_tokens: Vec<TaggedToken> = tokens.iter().zip(pred_tags.iter()).enumerate().map(|(i, (token, tag_str))| {
+            let tag = Tag::from_label(tag_str).unwrap_or(Tag::Outside);
+            let _ = tx.send(PipelineEvent::TagAssigned {
+                token_index: i,
+                token_text: token.text.clone(),
+                tag: tag.label(),
+                confidence: 1.0, 
+                source: format!("{:?}", mode).to_lowercase(),
+            });
+            TaggedToken { token: token.clone(), tag, confidence: 1.0 }
+        }).collect();
+
+        let entities = tokens_to_spans(&tagged_tokens, text);
+        let _ = tx.send(PipelineEvent::Done {
+            entities,
+            tagged_tokens,
+            total_tokens: tokens.len(),
+            processing_ms: start.elapsed().as_millis() as u64,
+        });
+    }
+
+    fn analyze_streaming_span(&self, text: &str, tokens: &[Token], tx: &mpsc::Sender<PipelineEvent>, start: std::time::Instant) {
+        let token_strs: Vec<String> = tokens.iter().map(|t| t.text.clone()).collect();
+        let spans = self.model.span.predict(&token_strs);
+
+        // Dummy tagged tokens (converte spans de volta para BIO para visualização seria ideal, mas complexo com overlaps)
+        // Para simplificar, gera tudo como O, exceto se eu quiser reconstruir BIO sem overlap.
+        let mut tagged_tokens: Vec<TaggedToken> = tokens.iter().map(|t| TaggedToken {
+            token: t.clone(),
+            tag: Tag::Outside,
+            confidence: 1.0
+        }).collect();
+
+        // Tenta marcar BIO para o primeiro layer de spans
+        let mut occupied = vec![false; tokens.len()];
+        for span in &spans {
+            // Ignora spans que colidem
+             let range = span.start..span.end;
+             if range.clone().any(|i| i < occupied.len() && occupied[i]) {
+                 continue; // Skip overlapping span for BIO visualization
+             }
+             
+             if let Some(cat) = crate::tagger::EntityCategory::from_str(&span.label) {
+                 if span.start < tagged_tokens.len() {
+                    tagged_tokens[span.start].tag = Tag::Begin(cat);
+                    occupied[span.start] = true;
+                    for i in (span.start + 1)..span.end {
+                        if i < tagged_tokens.len() {
+                            tagged_tokens[i].tag = Tag::Inside(cat);
+                            occupied[i] = true;
+                        }
+                    }
+                 }
+             }
+        }
+
+        // For Done event, TagAssigned events
+        for (i, tt) in tagged_tokens.iter().enumerate() {
+             let _ = tx.send(PipelineEvent::TagAssigned {
+                token_index: i,
+                token_text: tt.token.text.clone(),
+                tag: tt.tag.label(),
+                confidence: 1.0, 
+                source: "span_based".to_string(),
+            });
+        }
+
+        let mut entities_vec = Vec::new();
+        for span in spans {
+             if span.start < tokens.len() && span.end <= tokens.len() {
+                let start_char = tokens[span.start].start;
+                let end_char = tokens[span.end - 1].end;
+                
+                let cat = crate::tagger::EntityCategory::from_str(&span.label).unwrap_or(crate::tagger::EntityCategory::Misc);
+                
+                entities_vec.push(EntitySpan {
+                    text: text[start_char..end_char].to_string(),
+                    category: cat,
+                    start_token: span.start,
+                    end_token: span.end - 1,
+                    start: start_char,
+                    end: end_char,
+                    confidence: 1.0,
+                    source: "span_model".to_string(),
+                });
+            }
+        }
+
+        let _ = tx.send(PipelineEvent::Done {
+            entities: entities_vec,
+            tagged_tokens,
+            total_tokens: tokens.len(),
+            processing_ms: start.elapsed().as_millis() as u64,
         });
     }
 }
@@ -350,7 +536,7 @@ mod tests {
     fn test_pipeline_events_streaming() {
         let pipeline = NerPipeline::new();
         let (tx, rx) = mpsc::channel();
-        pipeline.analyze_streaming("São Paulo é a maior cidade do Brasil.", AlgorithmMode::Hybrid, tx);
+        pipeline.analyze_streaming("São Paulo é a maior cidade do Brasil.", AlgorithmMode::Hybrid, TokenizerMode::Standard, tx);
 
         let events: Vec<PipelineEvent> = rx.try_iter().collect();
         assert!(!events.is_empty());

@@ -29,12 +29,20 @@ use serde::{Deserialize, Serialize};
 
 use crate::tokenizer::Token;
 
-/// Um vetor de features esparso: mapa de nome_feature → valor (0.0 ou 1.0)
+/// Estrutura para representar as características de um token.
+///
+/// Utilizamos um mapa esparso (`HashMap<String, f64>`) porque o espaço de features é potencialmente
+/// infinito (ex: "word=abacaxi", "suffix3=axi"), mas cada token ativa apenas um pequeno subconjunto.
+///
+/// # Por que f64?
+/// Embora a maioria das features sejam binárias (0.0 ou 1.0), usar `f64` permite:
+/// - Features contínuas (ex: TF-IDF, embeddings).
+/// - Operações vetoriais eficientes (produto escalar).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FeatureVector {
-    /// Features e seus valores (geralmente 0.0 ou 1.0 para features binárias)
+    /// O mapa de features ativas. Ex: `{"is_capitalized": 1.0, "word=Brasil": 1.0}`.
     pub features: HashMap<String, f64>,
-    /// Índice do token a que pertence
+    /// Referência ao índice do token original na sentença.
     pub token_index: usize,
 }
 
@@ -46,11 +54,16 @@ impl FeatureVector {
         }
     }
 
+    /// Adiciona uma feature ao vetor com valor 1.0 (binária) ou customizado.
     pub fn insert(&mut self, key: impl Into<String>, value: f64) {
         self.features.insert(key.into(), value);
     }
 
-    /// Produto interno com um mapa de pesos (para scoring CRF)
+    /// Calcula o produto escalar (dot product) com um vetor de pesos.
+    ///
+    /// $$ \text{score} = \sum (w_i \cdot f_i) $$
+    ///
+    /// Usado pelo Perceptron e CRF para calcular a "força" de ativação de uma tag.
     pub fn dot(&self, weights: &HashMap<String, f64>) -> f64 {
         self.features
             .iter()
@@ -85,14 +98,18 @@ impl Default for Gazetteers {
     }
 }
 
-/// Extrai features para todos os tokens de uma sequência
+/// Gera vetores de features para toda a sequência de tokens.
+///
+/// Esta função orquestra a chamada de `extract_for_token` para cada posição,
+/// garantindo que o contexto (janela deslizante) seja respeitado.
 ///
 /// # Parâmetros
-/// - `tokens`: sequência de tokens do texto
-/// - `gazetteers`: listas de entidades conhecidas
+/// - `tokens`: A lista completa de tokens da sentença.
+/// - `gazetteers`: Acesso rápido a listas de entidades conhecidas (O(1)).
 ///
 /// # Retorno
-/// Um `FeatureVector` por token, na mesma ordem
+/// Retorna um `Vec<FeatureVector>` alinhado com os tokens de entrada.
+/// O índice `i` do retorno corresponde ao token `i` da entrada.
 pub fn extract_features(tokens: &[Token], gazetteers: &Gazetteers) -> Vec<FeatureVector> {
     tokens
         .iter()

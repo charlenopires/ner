@@ -13,32 +13,70 @@
 //! codificamos pesos que refletem os padrões mais fortes do corpus.
 
 use crate::corpus::extract_gazetteers_from_corpus;
+use crate::corpus::get_corpus;
 use crate::crf::CrfModel;
 use crate::features::Gazetteers;
+use crate::hmm::HmmModel;
+use crate::maxent::MaxEntModel;
+use crate::perceptron::PerceptronModel;
 use crate::rule_based::RuleEngine;
+use crate::span::SpanModel;
 use crate::tagger::{EntityCategory, Tag};
 
-/// O modelo NER completo: CRF + gazetteers + motor de regras
+/// O modelo NER completo, agregando todos os sub-modelos e recursos.
+///
+/// Este struct serve como o "cérebro" do sistema, contendo:
+/// - **CRF**: O modelo estatístico principal (pesos).
+/// - **Regras**: O motor de regras determinísticas.
+/// - **Gazelleers**: As listas de entidades conhecidas.
+/// - **Outros Modelos**: HMM, MaxEnt, Perceptron, SpanModel (para experimentação).
 pub struct NerModel {
     pub crf: CrfModel,
+    pub hmm: HmmModel,
+    pub maxent: MaxEntModel,
+    pub perceptron: PerceptronModel,
+    pub span: SpanModel,
     pub rule_engine: RuleEngine,
     gazetteers_cache: Gazetteers,
 }
 
 impl NerModel {
-    /// Constrói o modelo padrão com pesos derivados do corpus PT-BR
+    /// Constrói o modelo padrão com pesos derivados heuristicamente do corpus PT-BR.
+    ///
+    /// Em um cenário de produção real, estes pesos seriam aprendidos via treinamento (L-BFGS).
+    /// Aqui, eles são definidos manualmente para refletir intuições linguísticas sobre o português.
     pub fn build() -> Self {
         let crf = build_crf_model();
         let mut rule_engine = build_rule_engine();
+        // Os gazetteers alimentam tanto o motor de regras quanto a extração de features
         let gazetteers = build_gazetteers(&mut rule_engine);
+        let corpus = get_corpus();
+
+        // Treinamento rápido dos modelos secundários para demonstração
+        let mut hmm = HmmModel::new();
+        hmm.train(&corpus);
+
+        let mut maxent = MaxEntModel::new();
+        maxent.train(&corpus, 10, 0.1, 0.01);
+
+        let mut perceptron = PerceptronModel::new();
+        perceptron.train(&corpus, 5);
+
+        let mut span = SpanModel::new();
+        span.train(&corpus, 5);
+
         Self {
             crf,
+            hmm,
+            maxent,
+            perceptron,
+            span,
             rule_engine,
             gazetteers_cache: gazetteers,
         }
     }
 
-    /// Retorna os gazetteers para uso no extrator de features
+    /// Retorna uma cópia dos gazetteers para uso no extrator de features.
     pub fn gazetteers(&self) -> Gazetteers {
         self.gazetteers_cache.clone()
     }
@@ -50,22 +88,28 @@ impl Default for NerModel {
     }
 }
 
-/// Constrói o modelo CRF com pesos heurísticos baseados no corpus
+/// Constrói o modelo CRF com pesos heurísticos baseados no corpus.
+///
+/// Define manualmente a "importância" de cada feature para cada tag.
+///
+/// # Exemplos de Intuição
+/// - Se a palavra está nos **Gazetteers de Pessoa**, a chance de ser `B-PER` aumenta muito (+5.0).
+/// - Se a palavra começa com maiúscula (`is_capitalized`), há uma boa chance de ser uma entidade (+2.8).
+/// - Se a palavra anterior for "Presidente", a próxima provavelmente é `B-PER` (+2.5).
 fn build_crf_model() -> CrfModel {
     let mut model = CrfModel::new();
 
     // =====================================================================
-    // PESOS DE EMISSÃO
-    // Baseados nas correlações observadas no corpus PT-BR
+    // PESOS DE EMISSÃO (Feature -> Tag)
     // =====================================================================
 
     // --- PESSOA (PER) ---
-    // Palavras capitalizadas no início têm alta probabilidade de ser PER, ORG, LOC
+    // Capitalização é um forte indício, mas não garantia (início de frase).
     model.set_emission("is_capitalized", &Tag::Begin(EntityCategory::Per), 2.8);
     model.set_emission("is_capitalized", &Tag::Begin(EntityCategory::Org), 1.5);
     model.set_emission("is_capitalized", &Tag::Begin(EntityCategory::Loc), 1.5);
 
-    // Gazetteers → forte sinal
+    // Presença em listas conhecidas (Gazetteers) é o sinal mais forte.
     model.set_emission("in_person_gazetteer", &Tag::Begin(EntityCategory::Per), 5.0);
     model.set_emission("in_person_gazetteer", &Tag::Inside(EntityCategory::Per), 4.5);
     model.set_emission("in_location_gazetteer", &Tag::Begin(EntityCategory::Loc), 5.0);

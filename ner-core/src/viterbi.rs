@@ -26,53 +26,61 @@ use crate::crf::{compute_emission_scores, CrfModel};
 use crate::features::FeatureVector;
 use crate::tagger::Tag;
 
-/// Estado do Viterbi em um instante (para visualização passo a passo)
+/// Estado do Viterbi em um instante (para visualização passo a passo).
+///
+/// Permite que a UI "reproduza" o pensamento do algoritmo, mostrando quais caminhos
+/// foram considerados e descartados.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ViterbiStep {
-    /// Índice do token sendo processado
+    /// Índice do token sendo processado (0..N-1).
     pub token_index: usize,
-    /// Scores acumulados para cada tag neste passo: (label, score, best_prev_label)
+    /// Scores acumulados para cada tag neste passo.
     pub scores: Vec<TagScore>,
-    /// A tag com maior score neste passo
+    /// A tag com maior score neste passo (vencedora local).
     pub best_tag: String,
-    /// Score do melhor caminho até aqui
+    /// Score do melhor caminho até aqui.
     pub best_score: f64,
 }
 
-/// Score de uma tag individual no Viterbi
+/// Score de uma tag individual no Viterbi.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TagScore {
-    /// Label da tag (ex: "B-PER")
+    /// Label da tag (ex: "B-PER").
     pub tag: String,
-    /// Score acumulado até este passo com esta tag
+    /// Score acumulado ($\delta_t(i)$) até este passo.
+    /// Inclui o melhor caminho anterior + transição + emissão atual.
     pub score: f64,
-    /// Label da tag anterior que gerou este score ótimo
+    /// Label da tag anterior que gerou este score ótimo (backpointer).
     pub best_prev: String,
-    /// Score de emissão neste step
+    /// Score de emissão neste step (contribuição local da observação).
     pub emission: f64,
-    /// Score de transição da tag anterior para esta
+    /// Score de transição da tag anterior para esta (contribuição do contexto).
     pub transition: f64,
 }
 
-/// Resultado completo do Viterbi
+/// Resultado completo do Viterbi.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ViterbiResult {
-    /// Sequência de tags mais provável (uma por token)
+    /// Sequência de tags mais provável globalmente (otimizada via backtracking).
     pub best_sequence: Vec<Tag>,
-    /// Probabilidade (não-normalizada) da melhor sequência
+    /// Score total da melhor sequência (não normalizado em probabilidade).
     pub best_score: f64,
-    /// Tabela completa de scores (para visualização)
+    /// Tabela completa de scores (trellis) para fins de debug/visualização.
     pub steps: Vec<ViterbiStep>,
 }
 
-/// Executa o algoritmo de Viterbi sobre os features de uma sequência
+/// Executa o algoritmo de Viterbi para encontrar a melhor sequência de tags.
 ///
-/// # Parâmetros
-/// - `model`: modelo CRF com pesos
-/// - `feature_vectors`: features de cada token
+/// # O Algoritmo
+/// 1. **Inicialização ($t=0$)**: O score de cada tag é apenas seu score de emissão.
+/// 2. **Recursão ($t=1..N$)**: Para cada tag atual, encontra a melhor tag anterior que maximiza
+///    `score_anterior + transição + emissão_atual`.
+/// 3. **Backtracking**: Começa do final (melhor score total) e segue os ponteiros `backptr`
+///    para reconstruir o caminho ótimo reverso.
 ///
-/// # Retorno
-/// [`ViterbiResult`] com a sequência ótima e a tabela de scores para visualização
+/// # Performance
+/// - Complexidade Temporal: $O(N \cdot T^2)$, onde $N$ é o número de tokens e $T$ o número de tags (9).
+/// - Complexidade Espacial: $O(N \cdot T)$ para armazenar a tabela e backpointers.
 pub fn viterbi_decode(model: &CrfModel, feature_vectors: &[FeatureVector]) -> ViterbiResult {
     if feature_vectors.is_empty() {
         return ViterbiResult {

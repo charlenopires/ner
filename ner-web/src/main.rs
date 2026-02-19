@@ -10,7 +10,11 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use ner_core::{corpus::demo_texts, pipeline::{AlgorithmMode, NerPipeline, PipelineEvent}};
+use ner_core::{
+    corpus::demo_texts,
+    pipeline::{AlgorithmMode, NerPipeline, PipelineEvent},
+    tokenizer::TokenizerMode,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
@@ -31,6 +35,8 @@ struct AnalyzeRequest {
     text: String,
     #[serde(default)]
     mode: Option<AlgorithmMode>,
+    #[serde(default)]
+    tokenizer_mode: Option<TokenizerMode>,
 }
 
 /// Mensagem WebSocket recebida do cliente
@@ -39,6 +45,8 @@ struct WsRequest {
     text: String,
     #[serde(default)]
     mode: Option<AlgorithmMode>,
+    #[serde(default)]
+    tokenizer_mode: Option<TokenizerMode>,
 }
 
 #[derive(Serialize)]
@@ -102,7 +110,8 @@ async fn analyze_handler(
     }
 
     let mode = req.mode.unwrap_or_default();
-    let (tagged, entities) = state.pipeline.analyze_with_mode(&req.text, mode);
+    let tokenizer_mode = req.tokenizer_mode.unwrap_or(TokenizerMode::Standard);
+    let (tagged, entities) = state.pipeline.analyze_with_mode(&req.text, mode, tokenizer_mode);
     let total_tokens = tagged.len();
 
     Json(AnalyzeResponse {
@@ -143,21 +152,22 @@ async fn handle_websocket(mut socket: WebSocket, state: Arc<AppState>) {
     while let Some(Ok(msg)) = socket.recv().await {
         match msg {
             Message::Text(text) => {
-                // Tenta parsear como JSON {text, mode}; senão usa como texto puro
-                let (text_str, mode) = if let Ok(req) =
+                // Tenta parsear como JSON {text, mode, tokenizer_mode}; senão usa como texto puro
+                let (text_str, mode, tokenizer_mode) = if let Ok(req) =
                     serde_json::from_str::<WsRequest>(&text)
                 {
                     let m = req.mode.unwrap_or_default();
-                    (req.text.trim().to_string(), m)
+                    let t = req.tokenizer_mode.unwrap_or(TokenizerMode::Standard);
+                    (req.text.trim().to_string(), m, t)
                 } else {
-                    (text.trim().to_string(), AlgorithmMode::Hybrid)
+                    (text.trim().to_string(), AlgorithmMode::Hybrid, TokenizerMode::Standard)
                 };
 
                 if text_str.is_empty() {
                     continue;
                 }
 
-                info!("Analisando via WebSocket [{:?}]: {} chars", mode, text_str.len());
+                info!("Analisando via WebSocket [{:?} | {:?}]: {} chars", mode, tokenizer_mode, text_str.len());
 
                 // Executa o pipeline em um tokio::task::spawn_blocking para não bloquear o runtime
                 let (tx_std, rx_std) = std::sync::mpsc::channel::<PipelineEvent>();
@@ -168,25 +178,29 @@ async fn handle_websocket(mut socket: WebSocket, state: Arc<AppState>) {
 
                 // Roda pipeline em thread separada (é síncrono)
                 let handle = tokio::task::spawn_blocking(move || {
-                    pipeline_arc.pipeline.analyze_streaming(&text_for_thread, mode, tx_std);
+                    pipeline_arc.pipeline.analyze_streaming(&text_for_thread, mode, tokenizer_mode, tx_std);
                 });
 
                 // Coleta todos os eventos da fila std::mpsc (após pipeline concluir)
-                // Para streaming real usaríamos um canal assíncrono, mas para didática
-                // coletamos e enviamos com delay entre eventos
                 handle.await.ok();
 
                 // Coleta todos os eventos numa Vec (isso descarta o rx_std, que não é Send)
                 let events: Vec<PipelineEvent> = rx_std.try_iter().collect();
 
-                for event in events {
-                    if let Ok(json) = serde_json::to_string(&event) {
-                        if socket.send(Message::Text(json.into())).await.is_err() {
-                            return; // cliente desconectou
-                        }
-                        // Pequena pausa para animação visual (passo a passo)
-                        tokio::time::sleep(tokio::time::Duration::from_millis(35)).await;
+                loop {
+                    // Send events with delay
+                    // We need to iterate carefully since we can't await in a simple for loop over iterator
+                    // Actually, `events` is a Vec, so we can iterate.
+                    for event in &events {
+                         if let Ok(json) = serde_json::to_string(event) {
+                             if socket.send(Message::Text(json.into())).await.is_err() {
+                                 return; // cliente desconectou
+                             }
+                             // Pequena pausa para animação visual (passo a passo)
+                             tokio::time::sleep(tokio::time::Duration::from_millis(35)).await;
+                         }
                     }
+                    break;
                 }
             }
             Message::Close(_) => {

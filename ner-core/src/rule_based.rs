@@ -24,19 +24,23 @@ pub struct RuleMatch {
     pub confidence: f64,
 }
 
-/// Motor de regras com gazetteers e padrões regex
+/// Motor de regras com gazetteers e padrões regex.
+///
+/// Mantém listas de entidades conhecidas e padrões léxicos.
+/// É utilizado tanto para gerar features (no modelo estatístico) quanto para
+/// fazer predições diretas (no modo híbrido).
 pub struct RuleEngine {
-    /// Nomes de pessoas conhecidas (lowercase)
+    /// Nomes de pessoas conhecidas (lowercase). Ex: "lula", "pelé".
     person_names: Vec<String>,
-    /// Cidades, estados e países (lowercase)
+    /// Cidades, estados e países (lowercase). Ex: "brasil", "são paulo".
     location_names: Vec<String>,
-    /// Organizações conhecidas (lowercase, pode ser múltiplas palavras)
+    /// Organizações conhecidas (lowercase, pode ter múltiplas palavras). Ex: "banco do brasil".
     org_names: Vec<Vec<String>>,
-    /// Entidades miscelâneas (eventos, produtos, etc.) — lowercase
+    /// Entidades miscelâneas (eventos, leis). Ex: "copa do mundo".
     misc_names: Vec<Vec<String>>,
-    /// Títulos que precedem nomes de pessoas
+    /// Títulos que frequentemente precedem nomes de pessoas. Ex: "presidente", "doutor".
     person_titles: Vec<String>,
-    /// Palavras que indicam organização ao redor
+    /// Palavras que indicam organização ao redor. Ex: "s.a.", "ltda".
     org_indicators: Vec<String>,
 }
 
@@ -47,6 +51,7 @@ impl RuleEngine {
             location_names: vec![],
             org_names: vec![],
             misc_names: vec![],
+            // Lista expandida de títulos comuns em PT-BR
             person_titles: [
                 "presidente", "ex-presidente", "senador", "senadora", "deputado",
                 "deputada", "ministro", "ministra", "governador", "governadora",
@@ -55,6 +60,7 @@ impl RuleEngine {
                 "diretor", "diretora", "ceo", "jogador", "jogadora", "técnico",
                 "técnica", "atleta", "ator", "atriz", "cantor", "cantora",
             ].iter().map(|s| s.to_string()).collect(),
+            // Indicadores jurídicos de empresas
             org_indicators: [
                 "s.a.", "s/a", "ltda", "eireli", "me", "epp", "sa", "inc",
                 "corp", "holdings", "group", "fc", "esporte", "clube",
@@ -84,9 +90,16 @@ impl RuleEngine {
         }
     }
 
-    /// Aplica todas as regras à sequência de tokens
+    /// Aplica todas as regras à sequência de tokens.
     ///
-    /// Retorna um mapa token_index → RuleMatch para os tokens identificados
+    /// Segue a seguinte ordem de prioridade (uma regra posterior pode sobrescrever ou preencher lacunas):
+    /// 1. **Gazetteers Simples** (Pessoas, Locais): Casamento exato de token único.
+    /// 2. **Gazetteers Compostos** (Orgs, Misc): Casamento de n-gramas.
+    /// 3. **Padrões de Contexto** (Títulos): "Presidente X" inferindo que X é Pessoa.
+    /// 4. **Sufixos/Indicadores** (Orgs): "Empresa X Ltda" inferindo que X é Organização.
+    /// 5. **Regex** (CNPJ/CPF): Validação de formato para documentos.
+    ///
+    /// Retorna um vetor onde cada posição contém `Some(RuleMatch)` se alguma regra foi ativada.
     pub fn apply(&self, tokens: &[Token]) -> Vec<Option<RuleMatch>> {
         let mut result: Vec<Option<RuleMatch>> = vec![None; tokens.len()];
 

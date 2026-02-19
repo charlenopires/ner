@@ -29,21 +29,32 @@ use serde::{Deserialize, Serialize};
 use crate::features::FeatureVector;
 use crate::tagger::Tag;
 
-/// Modelo CRF com pesos aprendidos/definidos
+/// Modelo CRF (Conditional Random Field) Linear-Chain.
 ///
-/// Contém:
-/// - `emission_weights`: mapa feature_name×tag_label → peso
-/// - `transition_weights`: matriz tag_prev×tag_next → peso
+/// O CRF é um modelo discriminativo que modela a probabilidade condicional $P(y|x)$
+/// de uma sequência de tags $y$ dada uma sequência de observações $x$.
+///
+/// Diferente de classificadores locais (como Regressão Logística por token),
+/// o CRF toma decisões globais, considerando as dependências entre tags vizinhas
+/// (ex: `I-PER` deve seguir `B-PER`).
+///
+/// # Estrutura
+/// - **Pesos de Emissão**: Associam features do texto (ex: "é maiúscula") a tags específicas.
+/// - **Pesos de Transição**: Associam pares de tags consecutivas ($y_{i-1} \to y_i$).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrfModel {
-    /// Pesos de emissão: (feature_name + "|" + tag_label) → f64
+    /// Mapa de pesos de emissão.
+    /// A chave é uma string composta: `"feature_name|tag_label"`.
+    /// O valor é o peso $w_k$ aprendido (ou definido heuristicamente).
     pub emission_weights: HashMap<String, f64>,
-    /// Pesos de transição: indexed by [prev_tag_idx][next_tag_idx]
+    
+    /// Matriz de transição $T[u][v]$ onde $u$ é a tag anterior e $v$ a atual.
+    /// O valor representa a "afinidade" entre as duas tags.
     pub transition_weights: Vec<Vec<f64>>,
 }
 
 impl CrfModel {
-    /// Cria um modelo CRF com pesos zerados
+    /// Cria um novo modelo CRF com pesos zerados.
     pub fn new() -> Self {
         let n = Tag::COUNT;
         Self {
@@ -52,27 +63,38 @@ impl CrfModel {
         }
     }
 
-    /// Calcula o score de emissão para uma tag num token com features dadas
+    /// Calcula o **Score de Emissão** para uma tag em um determinado token.
     ///
-    /// `score = Σ_k w_{k, tag} * f_k(x, i)`
+    /// Corresponde ao produto escalar entre o vetor de features do token e os pesos
+    /// da tag:
+    /// $$ \text{score}(y_i, x, i) = \sum_{k} w_{k, y_i} \cdot f_k(x, i) $$
+    ///
+    /// Onde $f_k(x, i)$ é 1 se a feature $k$ está presente no token $i$, e 0 caso contrário.
     pub fn emission_score(&self, features: &FeatureVector, tag: &Tag) -> f64 {
         let tag_label = tag.label();
         features
             .features
             .iter()
             .map(|(feat_name, feat_val)| {
+                // Concatena nome da feature e label da tag para buscar no mapa plano
                 let key = format!("{feat_name}|{tag_label}");
                 feat_val * self.emission_weights.get(&key).unwrap_or(&0.0)
             })
             .sum()
     }
 
-    /// Calcula o score de transição de uma tag para outra
+    /// Calcula o **Score de Transição** entre duas tags consecutivas.
+    ///
+    /// $$ \text{trans}(y_{i-1}, y_i) $$
+    ///
+    /// Retorna o peso associado à mudança da tag `prev` para a tag `next`.
     pub fn transition_score(&self, prev: &Tag, next: &Tag) -> f64 {
         self.transition_weights[prev.index()][next.index()]
     }
 
-    /// Pontua todas as tags possíveis para um token → retorna vetor de (tag, score)
+    /// Pontua todas as tags possíveis para um token.
+    ///
+    /// Retorna um vetor de pares `(Tag, Score)` para uso no Viterbi.
     pub fn score_all_tags(&self, features: &FeatureVector) -> Vec<(Tag, f64)> {
         Tag::all()
             .into_iter()
@@ -83,13 +105,13 @@ impl CrfModel {
             .collect()
     }
 
-    /// Configura um peso de emissão
+    /// Define manualmente um peso de emissão (útil para construção heurística).
     pub fn set_emission(&mut self, feature: &str, tag: &Tag, weight: f64) {
         let key = format!("{feature}|{}", tag.label());
         self.emission_weights.insert(key, weight);
     }
 
-    /// Configura um peso de transição
+    /// Define manualmente um peso de transição.
     pub fn set_transition(&mut self, from: &Tag, to: &Tag, weight: f64) {
         self.transition_weights[from.index()][to.index()] = weight;
     }
