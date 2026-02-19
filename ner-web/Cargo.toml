@@ -1,0 +1,16 @@
+[package]
+name = "ner-web"
+version = "0.1.0"
+edition = "2021"
+description = "Servidor web para visualização interativa do NER em tempo real"
+
+[dependencies]
+ner-core = { path = "../ner-core" }
+axum = { version = "0.7", features = ["ws"] }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["fs", "cors"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

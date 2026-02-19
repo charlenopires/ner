@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NER — Reconhecimento de Entidades Nomeadas em Rust</title>
+  <meta name="description"
+    content="Visualizador interativo de NER (Named Entity Recognition) implementado em Rust com CRF e Viterbi. Veja o algoritmo em ação passo a passo." />
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://unpkg.com/htmx-ext-ws@2.0.2/ws.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+
+  <style>
+    /* ============================================================
+       DESIGN SYSTEM — NER Visualizer
+    ============================================================ */
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-card: #12121a;
+      --bg-card-2: #1a1a26;
+      --bg-card-3: #1e1e2e;
+      --border: rgba(255, 255, 255, 0.07);
+      --border-bright: rgba(255, 255, 255, 0.15);
+      --text-primary: #e8e8f0;
+      --text-secondary: #9090b0;
+      --text-muted: #60607a;
+
+      --accent-blue: #4f8ef7;
+      --accent-purple: #9b72f5;
+      --accent-cyan: #22d3ee;
+      --accent-green: #34d399;
+      --shine: rgba(255, 255, 255, 0.04);
+
+      /* Entity colors */
+      --per-color: #3b82f6;
+      --per-bg: rgba(59, 130, 246, 0.15);
+      --per-border: rgba(59, 130, 246, 0.4);
+      --org-color: #10b981;
+      --org-bg: rgba(16, 185, 129, 0.15);
+      --org-border: rgba(16, 185, 129, 0.4);
+      --loc-color: #f59e0b;
+      --loc-bg: rgba(245, 158, 11, 0.15);
+      --loc-border: rgba(245, 158, 11, 0.4);
+      --misc-color: #8b5cf6;
+      --misc-bg: rgba(139, 92, 246, 0.15);
+      --misc-border: rgba(139, 92, 246, 0.4);
+
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-xs: 6px;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Background glow */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -30%;
+      left: -20%;
+      width: 80%;
+      height: 80%;
+      background: radial-gradient(ellipse, rgba(79, 142, 247, 0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -30%;
+      right: -20%;
+      width: 70%;
+      height: 70%;
+      background: radial-gradient(ellipse, rgba(155, 114, 245, 0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ============================================================
+       HEADER
+    ============================================================ */
+    header {
+      border-bottom: 1px solid var(--border);
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 0 2rem;
+    }
+
+    .header-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 16px rgba(79, 142, 247, 0.3);
+    }
+
+    .logo-text {
+      font-size: 1.1rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #e8e8f0, #9090b0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-badges {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      border: 1px solid;
+    }
+
+    .badge-rust {
+      background: rgba(247, 76, 0, 0.15);
+      color: #f74c00;
+      border-color: rgba(247, 76, 0, 0.3);
+    }
+
+    .badge-crf {
+      background: rgba(79, 142, 247, 0.15);
+      color: var(--accent-blue);
+      border-color: rgba(79, 142, 247, 0.3);
+    }
+
+    .badge-ws {
+      background: rgba(34, 211, 238, 0.15);
+      color: var(--accent-cyan);
+      border-color: rgba(34, 211, 238, 0.3);
+    }
+
+    /* ============================================================
+       MAIN LAYOUT
+    ============================================================ */
+    .main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 1.5rem 2rem;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    /* ============================================================
+       HERO
+    ============================================================ */
+    .hero {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 2.5rem 1rem 1.5rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      font-weight: 800;
+      background: linear-gradient(135deg, #e8e8f0 0%, var(--accent-blue) 50%, var(--accent-purple) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.2;
+      margin-bottom: 0.75rem;
+    }
+
+    .hero p {
+      color: var(--text-secondary);
+      font-size: 1rem;
+      max-width: 640px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+
+    /* ============================================================
+       CARDS
+    ============================================================ */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .card-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--shine);
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-body {
+      padding: 1.25rem;
+    }
+
+    /* ============================================================
+       TEXT INPUT AREA
+    ============================================================ */
+    .input-area {
+      position: relative;
+    }
+
+    textarea#text-input {
+      width: 100%;
+      min-height: 140px;
+      background: var(--bg-card-3);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      padding: 1rem;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea#text-input:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.1);
+    }
+
+    textarea#text-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* Demo texts */
+    .demo-texts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 0.75rem;
+    }
+
+    .demo-btn {
+      padding: 5px 12px;
+      border-radius: 16px;
+      background: var(--bg-card-3);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .demo-btn:hover {
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+      background: rgba(79, 142, 247, 0.08);
+    }
+
+    /* Algorithm Mode Selector */
+    .algo-mode-panel {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 0.9rem;
+      padding: 0.65rem 0.9rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .algo-mode-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .algo-mode-toggle {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .mode-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 13px;
+      border-radius: 20px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .mode-btn:hover {
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+      background: rgba(79, 142, 247, 0.07);
+    }
+
+    .mode-btn.active {
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      border-color: transparent;
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 2px 12px rgba(79, 142, 247, 0.35);
+    }
+
+    .mode-desc {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-style: italic;
+      flex: 1;
+      min-width: 120px;
+    }
+
+    /* Analyze button */
+    .btn-analyze {
+      margin-top: 1rem;
+      width: 100%;
+      padding: 0.85rem;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(79, 142, 247, 0.3);
+    }
+
+    .btn-analyze:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(79, 142, 247, 0.4);
+    }
+
+    .btn-analyze:active {
+      transform: translateY(0);
+    }
+
+    .btn-analyze:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ============================================================
+       RESULT DISPLAY
+    ============================================================ */
+    #result-display {
+      margin-top: 1.25rem;
+      min-height: 80px;
+      padding: 1rem;
+      background: var(--bg-card-3);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      font-size: 0.95rem;
+      line-height: 1.8;
+      word-break: break-word;
+    }
+
+    .placeholder-text {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 1rem;
+    }
+
+    /* Entity highlights */
+    .ent {
+      display: inline;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-weight: 600;
+      position: relative;
+      cursor: default;
+      transition: filter 0.15s;
+    }
+
+    .ent:hover {
+      filter: brightness(1.2);
+    }
+
+    .ent-per {
+      background: var(--per-bg);
+      color: var(--per-color);
+      border: 1px solid var(--per-border);
+    }
+
+    .ent-org {
+      background: var(--org-bg);
+      color: var(--org-color);
+      border: 1px solid var(--org-border);
+    }
+
+    .ent-loc {
+      background: var(--loc-bg);
+      color: var(--loc-color);
+      border: 1px solid var(--loc-border);
+    }
+
+    .ent-misc {
+      background: var(--misc-bg);
+      color: var(--misc-color);
+      border: 1px solid var(--misc-border);
+    }
+
+    .ent-label {
+      font-size: 0.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      vertical-align: super;
+      margin-left: 3px;
+      opacity: 0.8;
+    }
+
+    /* Entity summary chips */
+    #entity-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 1rem;
+    }
+
+    .entity-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      animation: chip-in 0.3s ease;
+    }
+
+    @keyframes chip-in {
+      from {
+        opacity: 0;
+        transform: scale(0.8);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* ============================================================
+       LEGEND
+    ============================================================ */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 0.75rem 1.25rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+    }
+
+    /* ============================================================
+       RIGHT PANEL — STEP-BY-STEP
+    ============================================================ */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    /* Status indicator */
+    #ws-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0.6rem 1rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .status-dot.connected {
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    .status-dot.processing {
+      background: var(--accent-blue);
+      animation: pulse 0.8s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    /* Pipeline steps */
+    #pipeline-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 420px;
+      overflow-y: auto;
+      padding: 1rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .step-item {
+      display: flex;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: var(--radius-xs);
+      background: var(--bg-card-2);
+      border: 1px solid var(--border);
+      font-size: 0.78rem;
+      line-height: 1.4;
+      animation: step-in 0.25s ease;
+    }
+
+    @keyframes step-in {
+      from {
+        opacity: 0;
+        transform: translateX(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .step-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .step-title {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .step-detail {
+      color: var(--text-secondary);
+      word-break: break-word;
+    }
+
+    .step-tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      margin-left: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .step-tok {
+      border-left: 3px solid var(--accent-cyan);
+    }
+
+    .step-feat {
+      border-left: 3px solid var(--accent-purple);
+    }
+
+    .step-rule {
+      border-left: 3px solid var(--accent-green);
+    }
+
+    .step-vit {
+      border-left: 3px solid var(--accent-blue);
+    }
+
+    .step-tag-ev {
+      border-left: 3px solid var(--loc-color);
+    }
+
+    .step-done {
+      border-left: 3px solid var(--accent-green);
+    }
+
+    /* ============================================================
+       VITERBI TABLE
+    ============================================================ */
+    #viterbi-section {
+      display: none;
+    }
+
+    #viterbi-section.visible {
+      display: block;
+    }
+
+    .viterbi-table-wrap {
+      overflow-x: auto;
+      padding: 0 1rem 1rem;
+      max-height: 220px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .viterbi-table {
+      border-collapse: collapse;
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+    }
+
+    .viterbi-table th {
+      padding: 4px 8px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card-2);
+      position: sticky;
+      top: 0;
+    }
+
+    .viterbi-table td {
+      padding: 3px 8px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+      transition: background 0.15s;
+    }
+
+    .viterbi-table tr:hover td {
+      background: var(--bg-card-3);
+    }
+
+    .viterbi-best {
+      color: var(--accent-green) !important;
+      font-weight: 700;
+      background: rgba(52, 211, 153, 0.08) !important;
+    }
+
+    .score-bar {
+      display: inline-block;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--accent-blue);
+      margin-left: 4px;
+      vertical-align: middle;
+      opacity: 0.5;
+    }
+
+    /* ============================================================
+       STATS BAR
+    ============================================================ */
+    #stats-bar {
+      display: none;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    #stats-bar.visible {
+      display: grid;
+    }
+
+    .stat-cell {
+      background: var(--bg-card);
+      padding: 10px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    /* ============================================================
+       ALGORITHM DIAGRAM
+    ============================================================ */
+    .algo-diagram {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 0.75rem;
+    }
+
+    .algo-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 10px;
+      background: var(--bg-card-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+      min-width: 72px;
+    }
+
+    .algo-step.active {
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+      background: rgba(79, 142, 247, 0.08);
+      box-shadow: 0 0 12px rgba(79, 142, 247, 0.2);
+    }
+
+    .algo-step.done {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+      background: rgba(52, 211, 153, 0.08);
+    }
+
+    .algo-arrow {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .algo-emoji {
+      font-size: 1.1rem;
+    }
+
+    /* ============================================================
+       RESPONSIVE
+    ============================================================ */
+    @media (max-width: 900px) {
+      .main {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        padding: 0 1rem;
+      }
+
+      .main {
+        padding: 1rem;
+      }
+
+      body::before,
+      body::after {
+        display: none;
+      }
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-bright);
+      border-radius: 4px;
+    }
+
+    /* Loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ============================================================
+       HEADER
+  ============================================================ -->
+  <header>
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-icon">🔍</div>
+        <span class="logo-text">NER Visualizer</span>
+      </div>
+      <div class="header-badges">
+        <span class="badge badge-rust">🦀 Rust</span>
+        <span class="badge badge-crf">CRF + Viterbi</span>
+        <span class="badge badge-ws">WebSocket</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       MAIN
+  ============================================================ -->
+  <main class="main">
+
+    <!-- HERO -->
+    <div class="hero">
+      <h1>Reconhecimento de Entidades Nomeadas</h1>
+      <p>
+        Algoritmo NER implementado em <strong>Rust</strong> com <strong>CRF + algoritmo de Viterbi</strong>.
+        Observe cada passo — tokenização, extração de features, regras e decodificação — em tempo real via WebSocket.
+      </p>
+    </div>
+
+    <!-- LEFT COLUMN -->
+    <div>
+
+      <!-- Algorithm pipeline diagram -->
+      <div class="card" style="margin-bottom:1rem;">
+        <div class="card-header">
+          <span class="card-title">📊 Pipeline do Algoritmo</span>
+        </div>
+        <div class="algo-diagram" id="algo-diagram">
+          <div class="algo-step" id="step-tok" title="Divide o texto em tokens"><span
+              class="algo-emoji">✂️</span>Tokenização</div>
+          <span class="algo-arrow">→</span>
+          <div class="algo-step" id="step-feat" title="Capitalização, prefixos, sufixos, contexto"><span
+              class="algo-emoji">🔬</span>Features</div>
+          <span class="algo-arrow">→</span>
+          <div class="algo-step" id="step-rule" title="Gazetteers e padrões regex"><span
+              class="algo-emoji">📋</span>Regras</div>
+          <span class="algo-arrow">→</span>
+          <div class="algo-step" id="step-crf" title="Scores de emissão CRF"><span class="algo-emoji">📈</span>CRF Score
+          </div>
+          <span class="algo-arrow">→</span>
+          <div class="algo-step" id="step-vit" title="Sequência ótima de tags"><span class="algo-emoji">🎯</span>Viterbi
+          </div>
+          <span class="algo-arrow">→</span>
+          <div class="algo-step" id="step-ent" title="Entidades identificadas"><span
+              class="algo-emoji">✅</span>Entidades</div>
+        </div>
+      </div>
+
+      <!-- Input + Result card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📝 Texto de Entrada</span>
+        </div>
+        <div class="card-body">
+          <div class="input-area">
+            <textarea id="text-input"
+              placeholder="Digite ou cole um texto em português brasileiro. Ex: Santos Dumont realizou o primeiro voo em Paris. O Hospital Albert Einstein em São Paulo..."
+              rows="5"></textarea>
+          </div>
+
+          <!-- Algorithm Mode Selector -->
+          <div class="algo-mode-panel">
+            <span class="algo-mode-label">⚙️ Algoritmo:</span>
+            <div class="algo-mode-toggle" id="algo-mode-toggle">
+              <button class="mode-btn active" data-mode="hybrid" onclick="selectMode(this)">
+                <span class="mode-icon">⚡</span> Híbrido
+              </button>
+              <button class="mode-btn" data-mode="rules_only" onclick="selectMode(this)">
+                <span class="mode-icon">📋</span> Regras
+              </button>
+              <button class="mode-btn" data-mode="crf_only" onclick="selectMode(this)">
+                <span class="mode-icon">📈</span> CRF
+              </button>
+              <button class="mode-btn" data-mode="features_only" onclick="selectMode(this)">
+                <span class="mode-icon">🔬</span> Features
+              </button>
+            </div>
+            <span class="mode-desc" id="mode-desc">Regras + CRF/Viterbi (melhor precisão)</span>
+          </div>
+
+          <div class="demo-texts" id="demo-texts">
+            <span style="font-size:0.75rem; color:var(--text-muted); align-self:center;">Exemplos:</span>
+          </div>
+
+          <button class="btn-analyze" id="btn-analyze" onclick="startAnalysis()">
+            <span id="btn-icon">🔍</span>
+            <span id="btn-label">Analisar Texto</span>
+          </button>
+        </div>
+
+        <!-- Result display -->
+        <div style="padding: 0 1.25rem 1.25rem;">
+          <div class="card-title" style="margin-bottom:0.75rem; padding-top:0.5rem;">
+            🏷️ Resultado
+          </div>
+          <div id="result-display">
+            <p class="placeholder-text">O texto anotado aparecerá aqui com entidades destacadas</p>
+          </div>
+          <div id="entity-chips"></div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--per-color)"></div>
+            <span>👤 Pessoa</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--org-color)"></div>
+            <span>🏢 Organização</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--loc-color)"></div>
+            <span>📍 Local</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--misc-color)"></div>
+            <span>🔖 Misc</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats bar -->
+      <div id="stats-bar" style="margin-top:1rem;">
+        <div class="stat-cell">
+          <div class="stat-value" id="stat-tokens">—</div>
+          <div class="stat-label">Tokens</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-value" id="stat-entities">—</div>
+          <div class="stat-label">Entidades</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-value" id="stat-ms">—</div>
+          <div class="stat-label">ms</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-value" id="stat-steps">—</div>
+          <div class="stat-label">Eventos</div>
+        </div>
+      </div>
+
+    </div><!-- /left column -->
+
+    <!-- RIGHT COLUMN (sidebar) -->
+    <div class="sidebar">
+
+      <!-- WS Status -->
+      <div id="ws-status">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Aguardando análise...</span>
+      </div>
+
+      <!-- Pipeline steps log -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">⚡ Eventos do Pipeline</span>
+          <button onclick="clearSteps()"
+            style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.75rem;">Limpar</button>
+        </div>
+        <div id="pipeline-steps">
+          <div class="step-item step-done">
+            <span class="step-icon">💡</span>
+            <div class="step-content">
+              <div class="step-title">Como usar</div>
+              <div class="step-detail">Digite um texto e clique em "Analisar" para ver cada passo do algoritmo NER em
+                tempo real.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Viterbi Table -->
+      <div class="card" id="viterbi-section">
+        <div class="card-header">
+          <span class="card-title">🎯 Tabela Viterbi</span>
+          <span style="font-size:0.72rem; color:var(--text-muted)">token → melhor tag</span>
+        </div>
+        <div class="viterbi-table-wrap">
+          <table class="viterbi-table" id="viterbi-table">
+            <thead>
+              <tr>
+                <th>Token</th>
+                <th>Melhor Tag</th>
+                <th>Score</th>
+                <th>Anterior</th>
+              </tr>
+            </thead>
+            <tbody id="viterbi-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /sidebar -->
+
+  </main>
+
+  <!-- ============================================================
+       JAVASCRIPT
+  ============================================================ -->
+  <script>
+    // ---------------------------------------------------------------
+    // WebSocket Management
+    // ---------------------------------------------------------------
+    let ws = null;
+    let stepCount = 0;
+    let entityCount = 0;
+    let tokenCount = 0;
+    let viterbiRows = [];
+
+    function getWsUrl() {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+      return `${proto}://${location.host}/ws`;
+    }
+
+    function connectWs() {
+      ws = new WebSocket(getWsUrl());
+
+      ws.onopen = () => {
+        setStatus('connected', 'WebSocket conectado — pronto');
+      };
+
+      ws.onclose = () => {
+        setStatus('', 'Reconectando...');
+        setTimeout(connectWs, 2000);
+      };
+
+      ws.onerror = () => {
+        setStatus('', 'Erro na conexão');
+      };
+
+      ws.onmessage = (evt) => {
+        try {
+          const event = JSON.parse(evt.data);
+          handleEvent(event);
+        } catch (e) {
+          console.error('Evento inválido:', e);
+        }
+      };
+    }
+
+    function setStatus(cls, text) {
+      const dot = document.getElementById('status-dot');
+      const txt = document.getElementById('status-text');
+      dot.className = 'status-dot ' + cls;
+      txt.textContent = text;
+    }
+
+    // ---------------------------------------------------------------
+    // Event Handlers
+    // ---------------------------------------------------------------
+    function handleEvent(event) {
+      stepCount++;
+      document.getElementById('stat-steps').textContent = stepCount;
+
+      switch (event.type) {
+        case 'TokenizationDone':
+          handleTokenization(event.data);
+          break;
+        case 'FeaturesComputed':
+          handleFeatures(event.data);
+          break;
+        case 'RuleApplied':
+          handleRule(event.data);
+          break;
+        case 'ViterbiStep':
+          handleViterbi(event.data);
+          break;
+        case 'TagAssigned':
+          handleTagAssigned(event.data);
+          break;
+        case 'Done':
+          handleDone(event.data);
+          break;
+        case 'Error':
+          addStep('❌', 'Erro', event.data.message, 'step-done');
+          setStatus('', 'Erro durante análise');
+          setBtnReady();
+          break;
+      }
+    }
+
+    function handleTokenization(data) {
+      tokenCount = data.total;
+      document.getElementById('stat-tokens').textContent = data.total;
+      setAlgoStep('step-tok');
+
+      addStep('✂️',
+        `Tokenização — ${data.total} tokens`,
+        `Texto dividido em ${data.total} tokens: ${data.tokens.slice(0, 5).map(t => '"' + t.text + '"').join(', ')}${data.total > 5 ? '...' : ''}`,
+        'step-tok'
+      );
+    }
+
+    function handleFeatures(data) {
+      setAlgoStep('step-feat');
+      if (data.token_index % 3 === 0) { // Mostra a cada 3 tokens pra não poluir
+        const top3 = data.top_features.slice(0, 3).map(([k]) => k).join(', ');
+        addStep('🔬',
+          `Features: "${data.token_text}"`,
+          `${data.top_features.length} features → Top: ${top3}`,
+          'step-feat'
+        );
+      }
+    }
+
+    function handleRule(data) {
+      setAlgoStep('step-rule');
+      const catCls = tagToCls(data.tag);
+      addStep('📋',
+        `Regra: "${data.token_text}"`,
+        `<span class="step-tag ent-${catCls}">${data.tag}</span> via ${data.rule_name} (${Math.round(data.confidence * 100)}% conf.)`,
+        'step-rule'
+      );
+    }
+
+    function handleViterbi(data) {
+      setAlgoStep('step-crf');
+      setAlgoStep('step-vit');
+      const step = data.step;
+      const best = step.best_tag;
+      const catCls = tagToCls(best);
+
+      addStep('🎯',
+        `Viterbi tk[${step.token_index}]: "${data.token_text}"`,
+        `Melhor: <span class="step-tag ent-${catCls}">${best}</span> (score ${step.best_score.toFixed(2)})`,
+        'step-vit'
+      );
+
+      // Atualiza tabela Viterbi
+      addViterbiRow(data.token_text, step.best_tag, step.best_score,
+        step.scores.find(s => s.tag === step.best_tag)?.best_prev || '—');
+    }
+
+    function handleTagAssigned(data) {
+      // Silencioso — só mostra entidades (não-O)
+      if (data.tag !== 'O' && data.tag.startsWith('B-')) {
+        setAlgoStep('step-ent');
+        const catCls = tagToCls(data.tag);
+        addStep('🏷️',
+          `Tag atribuída: "${data.token_text}"`,
+          `<span class="step-tag ent-${catCls}">${data.tag}</span> fonte: ${data.source} (${Math.round(data.confidence * 100)}%)`,
+          'step-tag-ev'
+        );
+      }
+    }
+
+    function handleDone(data) {
+      entityCount = data.entities.length;
+      document.getElementById('stat-entities').textContent = entityCount;
+      document.getElementById('stat-ms').textContent = data.processing_ms;
+
+      // Mark all algo steps as done
+      ['step-tok', 'step-feat', 'step-rule', 'step-crf', 'step-vit', 'step-ent'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.className = 'algo-step done';
+      });
+
+      addStep('✅',
+        `Concluído — ${entityCount} entidades em ${data.processing_ms}ms`,
+        `${data.total_tokens} tokens processados`,
+        'step-done'
+      );
+
+      // Renderiza o texto anotado
+      renderAnnotatedText(data);
+
+      // Mostra stats e viterbi
+      document.getElementById('stats-bar').classList.add('visible');
+      if (viterbiRows.length > 0) {
+        document.getElementById('viterbi-section').classList.add('visible');
+      }
+
+      setStatus('connected', `Pronto — ${entityCount} entidades encontradas`);
+      setBtnReady();
+    }
+
+    // ---------------------------------------------------------------
+    // Render annotated text
+    // ---------------------------------------------------------------
+    function renderAnnotatedText(data) {
+      const tokens = data.tagged_tokens;
+      const entities = data.entities;
+      const display = document.getElementById('result-display');
+      const chips = document.getElementById('entity-chips');
+
+      if (tokens.length === 0) {
+        display.innerHTML = '<p class="placeholder-text">Nenhum token encontrado</p>';
+        return;
+      }
+
+      // Build entity map: token_start → entity
+      const entityMap = new Map();
+      const entityEndMap = new Set();
+      for (const ent of entities) {
+        entityMap.set(ent.start_token, ent);
+        for (let i = ent.start_token; i <= ent.end_token; i++) {
+          entityEndMap.add(i);
+        }
+      }
+
+      let html = '';
+      const processedTokens = new Set();
+
+      for (let i = 0; i < tokens.length; i++) {
+        const tt = tokens[i];
+        if (processedTokens.has(i)) continue;
+
+        if (entityMap.has(i)) {
+          const ent = entityMap.get(i);
+          const cls = catToCls(ent.category);
+          const icon = catToIcon(ent.category);
+
+          // Collect all tokens of this entity
+          let entText = '';
+          for (let j = ent.start_token; j <= ent.end_token && j < tokens.length; j++) {
+            if (j > ent.start_token) {
+              const prev = tokens[j - 1];
+              const curr = tokens[j];
+              if (curr.start > prev.end) entText += ' ';
+            }
+            entText += tokens[j].token.text;
+            processedTokens.add(j);
+          }
+
+          const conf = Math.round(ent.confidence * 100);
+          html += `<span class="ent ent-${cls}" title="${ent.category} — ${conf}% confiança\nFonte: ${ent.source}">${entText}<span class="ent-label">${icon}${ent.category}</span></span> `;
+        } else {
+          html += escapeHtml(tt.token.text) + ' ';
+        }
+      }
+
+      display.innerHTML = html;
+
+      // Chips de entidades
+      chips.innerHTML = '';
+      const countsByCat = {};
+      for (const ent of entities) {
+        countsByCat[ent.category] = (countsByCat[ent.category] || 0) + 1;
+      }
+
+      // Unique entities (group by text+category)
+      const seen = new Set();
+      for (const ent of entities) {
+        const key = `${ent.text}|${ent.category}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        const cls = catToCls(ent.category);
+        const icon = catToIcon(ent.category);
+        const chip = document.createElement('div');
+        chip.className = `entity-chip ent-${cls}`;
+        chip.title = `Confiança: ${Math.round(ent.confidence * 100)}% | Fonte: ${ent.source}`;
+        chip.innerHTML = `${icon} <strong>${ent.text}</strong> <span style="opacity:0.7;font-size:0.7rem">${ent.category}</span>`;
+        chips.appendChild(chip);
+      }
+
+      if (entities.length === 0) {
+        chips.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem">Nenhuma entidade identificada</span>';
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // Viterbi table
+    // ---------------------------------------------------------------
+    function addViterbiRow(token, bestTag, score, prevTag) {
+      viterbiRows.push({ token, bestTag, score, prevTag });
+      const tbody = document.getElementById('viterbi-tbody');
+      const cls = tagToCls(bestTag);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="color:var(--text-primary);font-weight:500">${escapeHtml(token)}</td>
+        <td class="${bestTag !== 'O' ? 'viterbi-best' : ''}">
+          <span class="step-tag ent-${cls}">${bestTag}</span>
+        </td>
+        <td style="font-family:'JetBrains Mono',monospace">${score.toFixed(2)}</td>
+        <td style="color:var(--text-muted)">${prevTag}</td>
+      `;
+      tbody.appendChild(tr);
+      // Auto-scroll
+      const wrap = tbody.closest('.viterbi-table-wrap');
+      if (wrap) wrap.scrollTop = wrap.scrollHeight;
+    }
+
+    // ---------------------------------------------------------------
+    // Pipeline Steps Log
+    // ---------------------------------------------------------------
+    function addStep(icon, title, detail, cls) {
+      const container = document.getElementById('pipeline-steps');
+      const div = document.createElement('div');
+      div.className = `step-item ${cls}`;
+      div.innerHTML = `
+        <span class="step-icon">${icon}</span>
+        <div class="step-content">
+          <div class="step-title">${title}</div>
+          <div class="step-detail">${detail}</div>
+        </div>
+      `;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function clearSteps() {
+      document.getElementById('pipeline-steps').innerHTML = '';
+      stepCount = 0;
+      document.getElementById('stat-steps').textContent = '—';
+    }
+
+    // ---------------------------------------------------------------
+    // Algorithm step highlight
+    // ---------------------------------------------------------------
+    let currentAlgoStep = null;
+    function setAlgoStep(id) {
+      if (currentAlgoStep === id) return;
+      const all = ['step-tok', 'step-feat', 'step-rule', 'step-crf', 'step-vit', 'step-ent'];
+      all.forEach(sid => {
+        const el = document.getElementById(sid);
+        if (!el) return;
+        if (sid === id) el.className = 'algo-step active';
+        else if (!el.classList.contains('done')) el.className = 'algo-step';
+      });
+      currentAlgoStep = id;
+    }
+
+    // ---------------------------------------------------------------
+    // Start Analysis
+    // ---------------------------------------------------------------
+    function startAnalysis() {
+      const text = document.getElementById('text-input').value.trim();
+      if (!text) {
+        document.getElementById('text-input').focus();
+        return;
+      }
+
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        setStatus('', 'WebSocket desconectado, reconectando...');
+        connectWs();
+        setTimeout(() => startAnalysis(), 800);
+        return;
+      }
+
+      // Reset state
+      stepCount = 0;
+      entityCount = 0;
+      tokenCount = 0;
+      viterbiRows = [];
+      document.getElementById('viterbi-tbody').innerHTML = '';
+      document.getElementById('viterbi-section').classList.remove('visible');
+      document.getElementById('stats-bar').classList.remove('visible');
+      document.getElementById('result-display').innerHTML = '<p class="placeholder-text">Processando...</p>';
+      document.getElementById('entity-chips').innerHTML = '';
+      clearSteps();
+
+      // Reset algo steps
+      ['step-tok', 'step-feat', 'step-rule', 'step-crf', 'step-vit', 'step-ent'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.className = 'algo-step';
+      });
+
+      // Update button
+      const btn = document.getElementById('btn-analyze');
+      const btnLabel = document.getElementById('btn-label');
+      const btnIcon = document.getElementById('btn-icon');
+      btn.disabled = true;
+      btnIcon.innerHTML = '<span class="spinner"></span>';
+      btnLabel.textContent = 'Analisando...';
+
+      setStatus('processing', 'Pipeline em execução...');
+
+      // Send to WebSocket — now as JSON with mode
+      const modeBtn = document.querySelector('.mode-btn.active');
+      const mode = modeBtn ? modeBtn.dataset.mode : 'hybrid';
+      ws.send(JSON.stringify({ text, mode }));
+    }
+
+    function setBtnReady() {
+      const btn = document.getElementById('btn-analyze');
+      const btnLabel = document.getElementById('btn-label');
+      const btnIcon = document.getElementById('btn-icon');
+      btn.disabled = false;
+      btnIcon.textContent = '🔍';
+      btnLabel.textContent = 'Analisar Texto';
+    }
+
+    const MODE_DESCRIPTIONS = {
+      hybrid: 'Regras + CRF/Viterbi (melhor precisão)',
+      rules_only: 'Apenas motor de regras e gazetteers',
+      crf_only: 'Apenas CRF + Viterbi (sem regras)',
+      features_only: 'Apenas tokenização + features (sem classificação)',
+    };
+
+    function selectMode(btn) {
+      document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const descEl = document.getElementById('mode-desc');
+      if (descEl) descEl.textContent = MODE_DESCRIPTIONS[btn.dataset.mode] || '';
+    }
+
+    // ---------------------------------------------------------------
+    // Demo Texts
+    // ---------------------------------------------------------------
+    async function loadDemoTexts() {
+      try {
+        const resp = await fetch('/demo-texts');
+        const texts = await resp.json();
+        const container = document.getElementById('demo-texts');
+        for (const item of texts) {
+          const btn = document.createElement('button');
+          btn.className = 'demo-btn';
+          btn.textContent = item.domain;
+          btn.onclick = () => {
+            document.getElementById('text-input').value = item.text;
+          };
+          container.appendChild(btn);
+        }
+      } catch (e) {
+        console.warn('Não foi possível carregar textos demo:', e);
+      }
+    }
+
+    // ---------------------------------------------------------------
+    // Utilities
+    // ---------------------------------------------------------------
+    function tagToCls(tag) {
+      if (!tag || tag === 'O') return 'out';
+      if (tag.includes('PER')) return 'per';
+      if (tag.includes('ORG')) return 'org';
+      if (tag.includes('LOC')) return 'loc';
+      if (tag.includes('MISC')) return 'misc';
+      return 'out';
+    }
+
+    function catToCls(cat) {
+      switch (cat) {
+        case 'Per': return 'per';
+        case 'Org': return 'org';
+        case 'Loc': return 'loc';
+        case 'Misc': return 'misc';
+        default: return 'out';
+      }
+    }
+
+    function catToIcon(cat) {
+      switch (cat) {
+        case 'Per': return '👤 ';
+        case 'Org': return '🏢 ';
+        case 'Loc': return '📍 ';
+        case 'Misc': return '🔖 ';
+        default: return '';
+      }
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // Allow Ctrl+Enter to analyze
+    document.addEventListener('DOMContentLoaded', () => {
+      connectWs();
+      loadDemoTexts();
+
+      document.getElementById('text-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          startAnalysis();
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>

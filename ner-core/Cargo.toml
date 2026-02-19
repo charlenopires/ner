@@ -1,0 +1,14 @@
+[package]
+name = "ner-core"
+version = "0.1.0"
+edition = "2021"
+description = "Reconhecimento de Entidades Nomeadas (NER) em Português Brasileiro - implementação didática"
+license = "MIT"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+regex = "1"
+unicode-segmentation = "1"
+
+[dev-dependencies]
