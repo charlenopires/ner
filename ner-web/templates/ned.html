@@ -30,33 +30,80 @@
         </div>
     </div>
 
-    <!-- Concept card -->
+    <!-- INTERACTIVE CONTEXT WINDOW VISUALIZER -->
     <div class="card" style="margin-bottom: 1rem;">
         <div class="card-header">
-            <span class="card-title">💡 Como Funciona</span>
+            <span class="card-title">🪟 Como o NED Trabalha o Texto — Janela de Contexto</span>
+            <span class="badge badge-ws" style="font-size: 0.65rem;">Interativo</span>
         </div>
-        <div class="card-body" style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.7;">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <div class="card-body">
+            <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1rem;">
+                O NED desliza uma <strong>janela de ±3 tokens</strong> ao redor de cada entidade. As palavras dentro da
+                janela
+                são as <em>pistas contextuais</em>. Clique nos tokens abaixo para ver como a janela se move e quais
+                pistas são extraídas.
+            </p>
+
+            <!-- Example sentence tokens -->
+            <div
+                style="display: flex; flex-wrap: wrap; gap: 0.4rem; padding: 1rem; background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 1rem;">
+                {% set example_tokens = ["A", "socialite", "Paris", "Hilton", "visitou", "Paris", ",", "capital", "da",
+                "França", "."] %}
+                {% set entity_indices = [2, 3, 5] %}
+                <div id="ctx-tokens" style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+                    <button type="button" class="ctx-token" data-idx="0" onclick="showCtxWindow(0)"
+                        style="padding: 4px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem; border: 1px solid var(--border); background: var(--bg-card-2); color: var(--text-primary); cursor: pointer; transition: all 0.15s;">A</button>
+                    <button type="button" class="ctx-token" data-idx="1" onclick="showCtxWindow(1)"
+                        style="padding: 4px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem; border: 1px solid var(--border); background: var(--bg-card-2); color: var(--text-primary); cursor: pointer; transition: all 0.15s;">socialite</button>
+                    <button type="button" class="ctx-token entity-tok" data-idx="2" onclick="showCtxWindow(2)"
+                        style="padding: 4px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem; border: 1px solid rgba(245,158,11,0.5); background: rgba(245,158,11,0.12); color: var(--loc-color); cursor: pointer; transition: all 0.15s; font-weight: 700;">Paris</button>
+                    <button type="button" class="ctx-token entity-tok" data-idx="3" onclick="showCtxWindow(3)"
+                        style="padding: 4px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem; border: 1px solid rgba(245,158,11,0.5); background: rgba(245,158,11,0.12); color: var(--loc-color); cursor: pointer; transition: all 0.15s; font-weight: 700;">Hilton</button>
+                    <button type="button" class="ctx-token" data-idx="4" onclick="showCtxWindow(4)"
+                        style="padding: 4px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem; border: 1px solid var(--border); background: var(--bg-card-2); color: var(--text-primary); cursor: pointer; transition: all 0.15s;">visitou</button>
+                    <button type="button" class="ctx-token entity-tok" data-idx="5" onclick="showCtxWindow(5)"
+                        style="padding: 4px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem; border: 1px solid rgba(59,130,246,0.5); background: rgba(59,130,246,0.12); color: var(--accent-blue); cursor: pointer; transition: all 0.15s; font-weight: 700;">Paris</button>
+                    <button type="button" class="ctx-token" data-idx="6" onclick="showCtxWindow(6)"
+                        style="padding: 4px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem; border: 1px solid var(--border); background: var(--bg-card-2); color: var(--text-primary); cursor: pointer; transition: all 0.15s;">,</button>
+                    <button type="button" class="ctx-token" data-idx="7" onclick="showCtxWindow(7)"
+                        style="padding: 4px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem; border: 1px solid var(--border); background: var(--bg-card-2); color: var(--text-primary); cursor: pointer; transition: all 0.15s;">capital</button>
+                    <button type="button" class="ctx-token" data-idx="8" onclick="showCtxWindow(8)"
+                        style="padding: 4px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem; border: 1px solid var(--border); background: var(--bg-card-2); color: var(--text-primary); cursor: pointer; transition: all 0.15s;">da</button>
+                    <button type="button" class="ctx-token" data-idx="9" onclick="showCtxWindow(9)"
+                        style="padding: 4px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem; border: 1px solid var(--border); background: var(--bg-card-2); color: var(--text-primary); cursor: pointer; transition: all 0.15s;">França</button>
+                    <button type="button" class="ctx-token" data-idx="10" onclick="showCtxWindow(10)"
+                        style="padding: 4px 10px; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem; border: 1px solid var(--border); background: var(--bg-card-2); color: var(--text-primary); cursor: pointer; transition: all 0.15s;">.</button>
+                </div>
+            </div>
+
+            <!-- Context window explanation -->
+            <div id="ctx-info"
+                style="padding: 0.85rem 1rem; background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">
+                👆 Clique em qualquer token acima para ver a janela de contexto e as pistas extraídas.
+            </div>
+
+            <!-- Concept cards -->
+            <div
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
                 <div
-                    style="padding: 1rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border);">
-                    <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🪟</div>
-                    <strong style="color: var(--text-primary);">Janela de Contexto</strong>
-                    <p style="margin-top: 0.3rem;">Analisa até 3 tokens ao redor da entidade para encontrar pistas
-                        semânticas.</p>
+                    style="padding: 1rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border-left: 4px solid var(--accent-cyan);">
+                    <h4 style="color: var(--accent-cyan); font-size: 0.85rem; margin-bottom: 0.4rem;">🪟 Janela de
+                        Contexto</h4>
+                    <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; margin: 0;">Analisa
+                        até ±3 tokens ao redor da entidade para encontrar pistas semânticas.</p>
                 </div>
                 <div
-                    style="padding: 1rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border);">
-                    <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📋</div>
-                    <strong style="color: var(--text-primary);">Regras Heurísticas</strong>
-                    <p style="margin-top: 0.3rem;">Palavras como "socialite" → PER, "capital" → LOC direcionam a
-                        resolução.</p>
+                    style="padding: 1rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border-left: 4px solid #a78bfa;">
+                    <h4 style="color: #a78bfa; font-size: 0.85rem; margin-bottom: 0.4rem;">📋 Regras Heurísticas</h4>
+                    <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; margin: 0;">
+                        "socialite" → PER, "capital" → LOC, "empresa" → ORG direcionam a resolução.</p>
                 </div>
                 <div
-                    style="padding: 1rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border);">
-                    <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📊</div>
-                    <strong style="color: var(--text-primary);">Classe Majoritária</strong>
-                    <p style="margin-top: 0.3rem;">Sem contexto forte, assume a categoria estatisticamente mais comum.
-                    </p>
+                    style="padding: 1rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border-left: 4px solid var(--accent-green);">
+                    <h4 style="color: var(--accent-green); font-size: 0.85rem; margin-bottom: 0.4rem;">📊 Classe
+                        Majoritária</h4>
+                    <p style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; margin: 0;">Sem
+                        contexto forte, assume a categoria estatisticamente mais comum para a menção.</p>
                 </div>
             </div>
         </div>
@@ -88,6 +135,9 @@
                     <button type="button" class="demo-btn"
                         onclick="setNedDemo('O Jordan jogou pelo Chicago Bulls. A cidade de Jordan fica na Jordânia.')">Jordan
                         (Ambíguo)</button>
+                    <button type="button" class="demo-btn"
+                        onclick="setNedDemo('O banco Itaú anunciou lucro. Ela sentou em um banco na praça.')">Banco
+                        (Ambíguo)</button>
                 </div>
 
                 <button type="submit" class="btn-analyze">
@@ -101,11 +151,9 @@
                 <div class="card-title" style="margin-bottom:0.75rem;">
                     🏷️ Resultado da Desambiguação
                 </div>
-
                 <div id="ned-indicator" class="htmx-indicator" style="position: absolute; top: 0; right: 0;">
                     <div class="spinner"></div>
                 </div>
-
                 <div id="ned-results"
                     style="background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem; min-height: 100px;">
                     <p class="placeholder-text">Clique em "Desambiguar Entidades" para analisar o contexto semântico.
@@ -117,20 +165,16 @@
         <!-- Legend -->
         <div class="legend">
             <div class="legend-item">
-                <div class="legend-dot" style="background:var(--per-color)"></div>
-                <span>👤 Pessoa (PER)</span>
+                <div class="legend-dot" style="background:var(--per-color)"></div><span>👤 Pessoa (PER)</span>
             </div>
             <div class="legend-item">
-                <div class="legend-dot" style="background:var(--loc-color)"></div>
-                <span>📍 Local (LOC)</span>
+                <div class="legend-dot" style="background:var(--loc-color)"></div><span>📍 Local (LOC)</span>
             </div>
             <div class="legend-item">
-                <div class="legend-dot" style="background:var(--org-color)"></div>
-                <span>🏢 Organização (ORG)</span>
+                <div class="legend-dot" style="background:var(--org-color)"></div><span>🏢 Organização (ORG)</span>
             </div>
             <div class="legend-item">
-                <div class="legend-dot" style="background:var(--accent-green)"></div>
-                <span>✅ Confiança Alta</span>
+                <div class="legend-dot" style="background:var(--accent-green)"></div><span>✅ Confiança Alta</span>
             </div>
         </div>
     </div>
@@ -146,9 +190,85 @@
     .htmx-request.htmx-indicator {
         display: block;
     }
+
+    .ctx-token:hover {
+        border-color: var(--accent-cyan) !important;
+        transform: translateY(-1px);
+    }
+
+    .ctx-token.in-window {
+        background: rgba(34, 211, 238, 0.15) !important;
+        border-color: rgba(34, 211, 238, 0.5) !important;
+        color: var(--accent-cyan) !important;
+    }
+
+    .ctx-token.is-entity {
+        box-shadow: 0 0 8px rgba(147, 51, 234, 0.4);
+    }
 </style>
 
 <script>
+    const CTX_TOKENS = ["A", "socialite", "Paris", "Hilton", "visitou", "Paris", ",", "capital", "da", "França", "."];
+    const CTX_CLUES = {
+        0: null, 1: null,
+        2: { entity: "Paris Hilton", tag: "PER", clues: ["socialite"], decision: "PER — 'socialite' indica pessoa famosa" },
+        3: { entity: "Paris Hilton", tag: "PER", clues: ["socialite"], decision: "PER — parte do mesmo span da entidade" },
+        4: null,
+        5: { entity: "Paris", tag: "LOC", clues: ["visitou", "capital", "França"], decision: "LOC — 'capital da França' confirma localização geográfica" },
+        6: null, 7: null, 8: null, 9: null, 10: null,
+    };
+
+    function showCtxWindow(idx) {
+        const tokens = document.querySelectorAll('.ctx-token');
+        const WINDOW = 3;
+        tokens.forEach((tok, i) => {
+            tok.classList.remove('in-window', 'is-entity');
+            if (i === idx) {
+                tok.classList.add('is-entity');
+                tok.style.outline = '2px solid #a78bfa';
+            } else if (Math.abs(i - idx) <= WINDOW) {
+                tok.classList.add('in-window');
+                tok.style.outline = 'none';
+            } else {
+                tok.style.outline = 'none';
+                tok.style.opacity = '0.35';
+            }
+        });
+        // Restore opacity for window tokens
+        tokens.forEach((tok, i) => {
+            if (Math.abs(i - idx) <= WINDOW) tok.style.opacity = '1';
+        });
+
+        const info = document.getElementById('ctx-info');
+        const clue = CTX_CLUES[idx];
+        const windowToks = CTX_TOKENS.slice(Math.max(0, idx - WINDOW), Math.min(CTX_TOKENS.length, idx + WINDOW + 1))
+            .filter((_, i) => (i + Math.max(0, idx - WINDOW)) !== idx);
+
+        if (clue) {
+            info.innerHTML = `
+                <div style="display:flex; flex-direction:column; gap:0.5rem;">
+                    <div><span style="color:var(--text-muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Token Selecionado</span>
+                        <strong style="color:#a78bfa; display:block; font-size:1rem;">"${CTX_TOKENS[idx]}"</strong></div>
+                    <div><span style="color:var(--text-muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Janela ±3</span>
+                        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
+                            ${windowToks.map(t => `<span style="background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.25);color:var(--accent-cyan);padding:2px 8px;border-radius:12px;font-family:var(--font-mono);font-size:0.78rem;">${t}</span>`).join('')}
+                        </div>
+                    </div>
+                    <div><span style="color:var(--text-muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em;">Pistas Encontradas</span>
+                        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
+                            ${clue.clues.map(c => `<span style="background:rgba(147,51,234,0.1);border:1px solid rgba(147,51,234,0.3);color:#a78bfa;padding:2px 8px;border-radius:12px;font-size:0.78rem;">🔎 ${c}</span>`).join('')}
+                        </div>
+                    </div>
+                    <div style="padding:0.5rem 0.75rem;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.2);border-radius:6px;">
+                        <span style="color:var(--accent-green);font-weight:700;">✅ Decisão:</span>
+                        <span style="color:var(--text-primary);font-size:0.85rem;"> ${clue.decision}</span>
+                    </div>
+                </div>`;
+        } else {
+            info.innerHTML = `<span style="color:var(--text-muted);">Token <strong style="color:var(--text-primary);">"${CTX_TOKENS[idx]}"</strong> — não é uma entidade. Janela ±3: ${windowToks.join(', ')}</span>`;
+        }
+    }
+
     function setNedDemo(text) {
         document.getElementById('ned-text-input').value = text;
     }

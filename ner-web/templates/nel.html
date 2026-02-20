@@ -34,6 +34,78 @@
         </div>
     </div>
 
+    <!-- HOW NEL WORKS — step-by-step with example -->
+    <div class="card" style="margin-bottom: 1rem;">
+        <div class="card-header">
+            <span class="card-title">🎓 Como o NEL Trabalha o Texto — Passo a Passo</span>
+            <span class="badge badge-ws" style="font-size: 0.65rem;">Interativo</span>
+        </div>
+        <div class="card-body">
+
+            <!-- Step by step flow -->
+            <div
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0; position: relative; margin-bottom: 1.5rem;">
+                <div style="text-align: center; padding: 1rem 0.5rem; position: relative;">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.4rem;">📄</div>
+                    <div
+                        style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.3rem;">
+                        ① Menção</div>
+                    <div
+                        style="padding: 4px 12px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-primary);">
+                        "Lula"</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem;">Texto original</div>
+                </div>
+                <div
+                    style="display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: var(--text-muted);">
+                    →</div>
+                <div style="text-align: center; padding: 1rem 0.5rem;">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.4rem;">🔍</div>
+                    <div
+                        style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.3rem;">
+                        ② Candidatos</div>
+                    <div style="font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.8;">
+                        <div style="color: var(--accent-cyan);">Q36098 — Lula (político)</div>
+                        <div style="color: var(--text-muted); opacity: 0.6;">Q999 — Lula (peixe)</div>
+                    </div>
+                </div>
+                <div
+                    style="display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: var(--text-muted);">
+                    →</div>
+                <div style="text-align: center; padding: 1rem 0.5rem;">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.4rem;">🧮</div>
+                    <div
+                        style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.3rem;">
+                        ③ Fuzzy Match</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.7;">
+                        Score via Levenshtein<br>+ contexto NED
+                    </div>
+                </div>
+                <div
+                    style="display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: var(--text-muted);">
+                    →</div>
+                <div style="text-align: center; padding: 1rem 0.5rem;">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.4rem;">✅</div>
+                    <div
+                        style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.3rem;">
+                        ④ Grounded</div>
+                    <div
+                        style="padding: 4px 12px; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25); border-radius: 8px; font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent-green);">
+                        Q36098</div>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.3rem;">Wikidata-like ID</div>
+                </div>
+            </div>
+
+            <!-- NIL explanation -->
+            <div
+                style="padding: 0.85rem 1rem; background: rgba(255,255,255,0.02); border: 1px dashed var(--border); border-radius: var(--radius-sm); font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6;">
+                ❓ <strong style="color: var(--text-primary);">NIL (Not In List):</strong> Quando nenhum candidato da KB
+                atinge o threshold de similaridade, a entidade é marcada como <em>Out-of-Vocabulary</em>.
+                Em produção, isso indicaria a necessidade de expandir a KB ou usar técnicas de <em>open-domain
+                    linking</em>.
+            </div>
+        </div>
+    </div>
+
     <!-- Knowledge Base Info -->
     <div class="card" style="margin-bottom: 1rem;">
         <div class="card-header">
@@ -41,36 +113,57 @@
             <span class="badge badge-ws" style="font-size: 0.7rem;">Wikidata-like</span>
         </div>
         <div class="card-body">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
-                <div
-                    style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem;">
+                <div style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center; transition: border-color 0.2s;"
+                    onmouseenter="this.style.borderColor='var(--per-color)'"
+                    onmouseleave="this.style.borderColor='var(--border)'">
                     <div style="font-size: 1.3rem;">👤</div>
                     <strong style="color: var(--per-color); font-size: 0.85rem;">Lula</strong>
-                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">Q36098</div>
+                    <div
+                        style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; font-family: var(--font-mono);">
+                        Q36098</div>
                 </div>
-                <div
-                    style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center;">
-                    <div style="font-size: 1.3rem;">📍</div>
+                <div style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center; transition: border-color 0.2s;"
+                    onmouseenter="this.style.borderColor='var(--loc-color)'"
+                    onmouseleave="this.style.borderColor='var(--border)'">
+                    <div style="font-size: 1.3rem;">🌎</div>
                     <strong style="color: var(--loc-color); font-size: 0.85rem;">Brasil</strong>
-                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">Q155</div>
+                    <div
+                        style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; font-family: var(--font-mono);">
+                        Q155</div>
                 </div>
-                <div
-                    style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center;">
-                    <div style="font-size: 1.3rem;">🏢</div>
+                <div style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center; transition: border-color 0.2s;"
+                    onmouseenter="this.style.borderColor='var(--org-color)'"
+                    onmouseleave="this.style.borderColor='var(--border)'">
+                    <div style="font-size: 1.3rem;">🍎</div>
                     <strong style="color: var(--org-color); font-size: 0.85rem;">Apple Inc.</strong>
-                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">Q312</div>
+                    <div
+                        style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; font-family: var(--font-mono);">
+                        Q312</div>
                 </div>
-                <div
-                    style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center;">
-                    <div style="font-size: 1.3rem;">📍</div>
+                <div style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center; transition: border-color 0.2s;"
+                    onmouseenter="this.style.borderColor='var(--loc-color)'"
+                    onmouseleave="this.style.borderColor='var(--border)'">
+                    <div style="font-size: 1.3rem;">🗼</div>
                     <strong style="color: var(--loc-color); font-size: 0.85rem;">Paris</strong>
-                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">Q90</div>
+                    <div
+                        style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; font-family: var(--font-mono);">
+                        Q90</div>
+                </div>
+                <div style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center; transition: border-color 0.2s;"
+                    onmouseenter="this.style.borderColor='var(--per-color)'"
+                    onmouseleave="this.style.borderColor='var(--border)'">
+                    <div style="font-size: 1.3rem;">💃</div>
+                    <strong style="color: var(--per-color); font-size: 0.85rem;">Paris Hilton</strong>
+                    <div
+                        style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; font-family: var(--font-mono);">
+                        Q47899</div>
                 </div>
                 <div
-                    style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center;">
-                    <div style="font-size: 1.3rem;">👤</div>
-                    <strong style="color: var(--per-color); font-size: 0.85rem;">Paris Hilton</strong>
-                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">Q47899</div>
+                    style="padding: 0.75rem; background: rgba(255,255,255,0.02); border-radius: var(--radius-sm); border: 1px dashed var(--border); text-align: center;">
+                    <div style="font-size: 1.3rem; opacity: 0.4;">❓</div>
+                    <strong style="color: var(--text-muted); font-size: 0.82rem;">Outros</strong>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">NIL / OOV</div>
                 </div>
             </div>
         </div>
@@ -113,11 +206,9 @@
                 <div class="card-title" style="margin-bottom:0.75rem;">
                     🌐 Resultado do Grounding (KB)
                 </div>
-
                 <div id="nel-indicator" class="htmx-indicator" style="position: absolute; top: 0; right: 0;">
                     <div class="spinner"></div>
                 </div>
-
                 <div id="nel-results"
                     style="background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem; min-height: 100px;">
                     <p class="placeholder-text">Clique em "Executar Entity Linking" para realizar o Grounding na base de
@@ -129,24 +220,20 @@
         <!-- Legend -->
         <div class="legend">
             <div class="legend-item">
-                <div class="legend-dot" style="background:var(--accent-green)"></div>
-                <span>🔗 Grounded (Match na KB)</span>
+                <div class="legend-dot" style="background:var(--accent-green)"></div><span>🔗 Grounded (Match na
+                    KB)</span>
             </div>
             <div class="legend-item">
-                <div class="legend-dot" style="background:var(--text-muted)"></div>
-                <span>❓ NIL / OOV (Fora da KB)</span>
+                <div class="legend-dot" style="background:var(--text-muted)"></div><span>❓ NIL / OOV (Fora da KB)</span>
             </div>
             <div class="legend-item">
-                <div class="legend-dot" style="background:var(--per-color)"></div>
-                <span>👤 Pessoa</span>
+                <div class="legend-dot" style="background:var(--per-color)"></div><span>👤 Pessoa</span>
             </div>
             <div class="legend-item">
-                <div class="legend-dot" style="background:var(--loc-color)"></div>
-                <span>📍 Local</span>
+                <div class="legend-dot" style="background:var(--loc-color)"></div><span>📍 Local</span>
             </div>
             <div class="legend-item">
-                <div class="legend-dot" style="background:var(--org-color)"></div>
-                <span>🏢 Organização</span>
+                <div class="legend-dot" style="background:var(--org-color)"></div><span>🏢 Organização</span>
             </div>
         </div>
     </div>

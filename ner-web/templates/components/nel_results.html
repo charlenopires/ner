@@ -1,68 +1,149 @@
 {% if results.is_empty() %}
-<p style="color: var(--text-secondary); font-size: 0.95rem;">Nenhuma entidade encontrada para ligar (linkar).</p>
+<p class="placeholder-text">Nenhuma entidade encontrada para ligar (linkar).</p>
 {% else %}
-<div style="display: flex; flex-direction: column; gap: 1.5rem;">
-    {% for res in results %}
-    <div
-        style="background: var(--surface-light); border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
 
-        <!-- Header da entidade extraída -->
+<!-- Summary -->
+<div
+    style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 1.25rem;">
+    <div class="stat-cell">
+        <div class="stat-value">{{ results.len() }}</div>
+        <div class="stat-label">Entidades Processadas</div>
+    </div>
+    <div class="stat-cell">
+        <div class="stat-value" style="color: var(--accent-green);" id="nel-grounded">—</div>
+        <div class="stat-label">🔗 Grounded (KB)</div>
+    </div>
+    <div class="stat-cell">
+        <div class="stat-value" style="color: var(--text-muted);" id="nel-nil">—</div>
+        <div class="stat-label">❓ NIL / OOV</div>
+    </div>
+</div>
+
+<!-- Results -->
+<div style="display: flex; flex-direction: column; gap: 1.25rem;">
+    {% for res in results %}
+    <div class="nel-result-card" data-grounded="{% if res.kb_match.is_some() %}1{% else %}0{% endif %}"
+        style="background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; transition: border-color 0.2s;"
+        onmouseenter="this.style.borderColor='var(--accent-blue)'"
+        onmouseleave="this.style.borderColor='var(--border)'">
+
+        <!-- Pipeline mini-header -->
         <div
-            style="padding: 1rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(59, 130, 246, 0.05);">
-            <div>
-                <span style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase;">Menção de
-                    Superfície:</span>
-                <h4 style="margin: 0; margin-top: 0.2rem; color: var(--text-primary); font-size: 1.2rem;">"{{
-                    res.disambiguated.entity.text }}"</h4>
-            </div>
-            <div>
-                <span class="badge badge-rust" style="padding: 0.3rem 0.6rem; font-size: 0.85rem;">Tag: {{
-                    res.disambiguated.resolved_tag }}</span>
-            </div>
+            style="padding: 0.6rem 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.4rem; background: rgba(59, 130, 246, 0.03); font-size: 0.68rem; color: var(--text-muted); overflow-x: auto;">
+            <span
+                style="padding: 2px 8px; background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.2); border-radius: 10px; color: var(--accent-green); font-weight: 600;">✅
+                NER</span>
+            <span>→</span>
+            <span
+                style="padding: 2px 8px; background: rgba(34, 211, 238, 0.1); border: 1px solid rgba(34, 211, 238, 0.2); border-radius: 10px; color: var(--accent-cyan); font-weight: 600;">🔍
+                NED: {{ res.disambiguated.resolved_tag }}</span>
+            <span>→</span>
+            {% if res.kb_match.is_some() %}
+            <span
+                style="padding: 2px 8px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 10px; color: var(--accent-blue); font-weight: 600;">🔗
+                NEL: {{ res.kb_match.as_ref().unwrap().id }}</span>
+            {% else %}
+            <span
+                style="padding: 2px 8px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: var(--text-muted); font-weight: 600;">❓
+                NIL</span>
+            {% endif %}
         </div>
 
-        <!-- Area de Linking -->
         <div style="padding: 1rem;">
-            {% if res.kb_match.is_some() %}
-            <div style="display: flex; align-items: flex-start; gap: 1rem;">
-                <div style="font-size: 2rem; opacity: 0.8;">🌐</div>
-                <div style="flex: 1;">
+            <!-- Entity name + tag -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div>
                     <div
-                        style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem;">
-                        <a href="{{ res.kb_match.as_ref().unwrap().url }}" target="_blank"
-                            style="color: var(--accent-blue); font-size: 1.1rem; text-decoration: none; font-weight: bold;">
-                            {{ res.kb_match.as_ref().unwrap().name }}
-                        </a>
-                        <span
-                            style="font-size: 0.8rem; font-family: var(--font-mono); color: var(--text-secondary); background: rgba(255,255,255,0.1); padding: 0.2rem 0.4rem; border-radius: 4px;">
-                            ID: {{ res.kb_match.as_ref().unwrap().id }}
-                        </span>
-                    </div>
-                    <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5;">
-                        {{ res.kb_match.as_ref().unwrap().description }}
-                    </p>
-                    <div style="margin-top: 0.8rem; font-size: 0.8rem; color: var(--text-secondary);">
-                        <span style="display: inline-flex; align-items: center; gap: 0.4rem;">
-                            Score de Associação: <strong style="color: var(--accent-green);">{{
-                                "{:.0}"|format(res.match_score * 100.0) }}%</strong>
-                        </span>
+                        style="font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                        Menção de Superfície</div>
+                    <h4 style="margin: 0; color: var(--text-primary); font-size: 1.2rem; font-weight: 700;">"{{
+                        res.disambiguated.entity.text }}"</h4>
+                </div>
+                <span class="badge badge-rust" style="padding: 0.3rem 0.6rem; font-size: 0.85rem;">{{
+                    res.disambiguated.resolved_tag }}</span>
+            </div>
+
+            {% if res.kb_match.is_some() %}
+            <!-- Grounded entity card -->
+            <div
+                style="padding: 1rem; background: rgba(59, 130, 246, 0.04); border: 1px solid rgba(59, 130, 246, 0.15); border-radius: var(--radius-sm);">
+                <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                    <div style="font-size: 2.5rem; opacity: 0.8; line-height: 1;">🌐</div>
+                    <div style="flex: 1;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.4rem;">
+                            <a href="{{ res.kb_match.as_ref().unwrap().url }}" target="_blank"
+                                style="color: var(--accent-blue); font-size: 1.1rem; text-decoration: none; font-weight: bold; border-bottom: 1px dashed rgba(59,130,246,0.3);">
+                                {{ res.kb_match.as_ref().unwrap().name }}
+                            </a>
+                            <span
+                                style="font-size: 0.75rem; font-family: var(--font-mono); color: var(--accent-cyan); background: rgba(34, 211, 238, 0.08); padding: 3px 8px; border-radius: 4px; border: 1px solid rgba(34, 211, 238, 0.15);">
+                                {{ res.kb_match.as_ref().unwrap().id }}
+                            </span>
+                        </div>
+                        <p style="margin: 0; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.6;">
+                            {{ res.kb_match.as_ref().unwrap().description }}
+                        </p>
+                        <!-- Association score bar -->
+                        <div style="margin-top: 0.75rem;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                                <span style="font-size: 0.72rem; color: var(--text-muted);">Score de Associação</span>
+                                <span
+                                    style="font-size: 0.78rem; font-family: var(--font-mono); font-weight: 700; color: var(--accent-green);">
+                                    {{ "{:.0}"|format(res.match_score * 100.0) }}%
+                                </span>
+                            </div>
+                            <div
+                                style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                                <div style="height: 100%; width: {{ " {:.0}"|format(res.match_score * 100.0) }}%;
+                                    background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan));
+                                    border-radius: 3px;"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
             {% else %}
-            <div style="display: flex; align-items: center; gap: 0.8rem; padding: 0.5rem 0;">
-                <div style="font-size: 1.5rem; opacity: 0.5;">❓</div>
+            <!-- NIL entity -->
+            <div
+                style="padding: 1rem; background: rgba(255,255,255,0.02); border: 1px dashed var(--border); border-radius: var(--radius-sm); display: flex; align-items: center; gap: 0.8rem;">
+                <div style="font-size: 2rem; opacity: 0.4;">❓</div>
                 <div>
-                    <span style="color: var(--text-secondary); font-size: 0.95rem;">Entidade Fora da Base de
-                        Conhecimento (NIL / OOV)</span>
-                    <p style="margin: 0; margin-top: 0.2rem; font-size: 0.8rem; color: #a1a1aa;">Score calculado para
-                        candidatos foi abaixo do limiar.</p>
+                    <div style="color: var(--text-primary); font-size: 0.95rem; font-weight: 600;">Entidade Fora da Base
+                        de Conhecimento</div>
+                    <p style="margin: 0.3rem 0 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5;">
+                        NIL (Not In List) — O score com os candidatos da KB ficou abaixo do limiar mínimo.
+                    </p>
                 </div>
             </div>
             {% endif %}
         </div>
-
     </div>
     {% endfor %}
 </div>
+
+<!-- Educational note -->
+<div
+    style="margin-top: 1.25rem; padding: 0.75rem 1rem; border-left: 4px solid var(--accent-blue); background: rgba(59, 130, 246, 0.04); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;">
+    <p style="margin: 0; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6;">
+        💡 <strong>Pipeline completo:</strong> O texto passa por <strong>NER</strong> (extrair entidades) →
+        <strong>NED</strong> (resolver ambiguidade via contexto) → <strong>NEL</strong> (linkar à base de conhecimento).
+        Entidades marcadas como NIL precisariam de expansão da KB ou técnicas de open-domain linking.
+    </p>
+</div>
+
+<script>
+    (function () {
+        const cards = document.querySelectorAll('.nel-result-card');
+        let grounded = 0, nil = 0;
+        cards.forEach(card => {
+            if (card.dataset.grounded === '1') grounded++;
+            else nil++;
+        });
+        const eg = document.getElementById('nel-grounded');
+        const en = document.getElementById('nel-nil');
+        if (eg) eg.textContent = grounded;
+        if (en) en.textContent = nil;
+    })();
+</script>
 {% endif %}

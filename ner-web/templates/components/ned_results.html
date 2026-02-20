@@ -1,33 +1,137 @@
 {% if results.is_empty() %}
-<p style="color: var(--text-secondary); font-size: 0.95rem;">Nenhuma entidade encontrada para desambiguar.</p>
+<p class="placeholder-text">Nenhuma entidade encontrada para desambiguar.</p>
 {% else %}
-<div style="display: flex; flex-direction: column; gap: 1rem;">
+
+<!-- Summary -->
+<div
+    style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 1.25rem;">
+    <div class="stat-cell">
+        <div class="stat-value">{{ results.len() }}</div>
+        <div class="stat-label">Entidades Ambíguas</div>
+    </div>
+    <div class="stat-cell">
+        <div class="stat-value" style="color: var(--accent-green);" id="ned-high-conf">—</div>
+        <div class="stat-label">Alta Confiança (≥70%)</div>
+    </div>
+</div>
+
+<!-- Results -->
+<div style="display: flex; flex-direction: column; gap: 1.25rem;">
     {% for res in results %}
-    <div style="background: var(--surface-light); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <h4 style="margin: 0; color: var(--text-primary); font-size: 1.1rem;">"{{ res.entity.text }}"</h4>
-            <div>
-                <span style="font-size: 0.8rem; color: var(--text-secondary); margin-right: 0.5rem;">Original: <span
-                        class="badge badge-crf" style="padding: 0.2rem 0.5rem;">{{ res.original_tag }}</span></span>
-                <span style="font-size: 0.8rem; font-weight: bold; color: var(--text-primary);">Resolvido: <span
-                        class="badge badge-rust" style="padding: 0.2rem 0.5rem;">{{ res.resolved_tag }}</span></span>
+    <div class="ned-result-card" data-confidence="{{ res.confidence }}"
+        style="background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; transition: border-color 0.2s;"
+        onmouseenter="this.style.borderColor='var(--accent-blue)'"
+        onmouseleave="this.style.borderColor='var(--border)'">
+
+        <!-- Entity header with visual disambiguation flow -->
+        <div
+            style="padding: 1rem; border-bottom: 1px solid var(--border); background: linear-gradient(135deg, rgba(59, 130, 246, 0.04), rgba(147, 51, 234, 0.04));">
+            <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+                <div style="text-align: center;">
+                    <div
+                        style="font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                        Menção</div>
+                    <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">"{{ res.entity.text
+                        }}"</div>
+                </div>
+                <span style="color: var(--text-muted); font-size: 1.2rem;">→</span>
+                <div style="text-align: center;">
+                    <div
+                        style="font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                        Tag NER</div>
+                    <span class="badge badge-crf" style="padding: 0.3rem 0.6rem; font-size: 0.82rem;">{{
+                        res.original_tag }}</span>
+                </div>
+                <span style="color: var(--text-muted); font-size: 1.2rem;">→</span>
+                <div style="text-align: center; flex: 1;">
+                    <div
+                        style="font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                        🔍 Análise Contextual</div>
+                    <div
+                        style="font-size: 0.7rem; color: var(--text-secondary); background: var(--surface-light); padding: 4px 8px; border-radius: 4px; border: 1px dashed var(--border);">
+                        {{ res.context_clues.len() }} pista(s)
+                    </div>
+                </div>
+                <span style="color: var(--text-muted); font-size: 1.2rem;">→</span>
+                <div style="text-align: center;">
+                    <div
+                        style="font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                        Resolvido</div>
+                    <span class="badge badge-rust"
+                        style="padding: 0.3rem 0.6rem; font-size: 0.82rem; font-weight: 700;">{{ res.resolved_tag
+                        }}</span>
+                </div>
             </div>
         </div>
-        <div style="margin-bottom: 0.5rem;">
-            <span style="font-size: 0.85rem; color: var(--text-secondary);">Confiança: <strong
-                    style="color: var(--accent-green);">{{ "{:.0}"|format(res.confidence * 100.0) }}%</strong></span>
-        </div>
-        <div>
-            <span
-                style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Pistas
-                de Contexto:</span>
-            <ul style="margin: 0; padding-left: 1.5rem; color: var(--text-primary); font-size: 0.85rem;">
-                {% for clue in res.context_clues %}
-                <li>{{ clue }}</li>
-                {% endfor %}
-            </ul>
+
+        <!-- Body -->
+        <div style="padding: 1rem;">
+            <!-- Confidence bar -->
+            <div style="margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="font-size: 0.75rem; color: var(--text-secondary);">Confiança da Desambiguação</span>
+                    <span
+                        style="font-size: 0.82rem; font-family: var(--font-mono); font-weight: 700;
+                        {% if res.confidence >= 0.7 %}color: var(--accent-green);{% else %}color: var(--loc-color);{% endif %}">
+                        {{ "{:.0}"|format(res.confidence * 100.0) }}%
+                    </span>
+                </div>
+                <div
+                    style="width: 100%; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 100%; width: {{ " {:.0}"|format(res.confidence * 100.0) }}%; {% if
+                        res.confidence>= 0.7 %}
+                        background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan));
+                        {% else %}
+                        background: linear-gradient(90deg, var(--loc-color), #ef4444);
+                        {% endif %}
+                        border-radius: 3px; transition: width 0.5s ease;"></div>
+                </div>
+            </div>
+
+            <!-- Context clues -->
+            {% if !res.context_clues.is_empty() %}
+            <div>
+                <div
+                    style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.5rem;">
+                    🪟 Pistas de Contexto (Janela ±3 tokens)
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+                    {% for clue in res.context_clues %}
+                    <span
+                        style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 16px; font-size: 0.78rem;
+                        background: rgba(34, 211, 238, 0.08); border: 1px solid rgba(34, 211, 238, 0.2); color: var(--accent-cyan);">
+                        🔎 {{ clue }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
     {% endfor %}
 </div>
+
+<!-- Educational note -->
+<div
+    style="margin-top: 1.25rem; padding: 0.75rem 1rem; border-left: 4px solid var(--accent-purple); background: rgba(147, 51, 234, 0.04); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;">
+    <p style="margin: 0; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6;">
+        💡 <strong>Como funciona:</strong> O NED analisa uma <em>janela de contexto</em> de ±3 tokens ao redor de cada
+        entidade.
+        Palavras como "socialite" (→ PER), "capital" (→ LOC) ou "empresa" (→ ORG) servem como <em>pistas semânticas</em>
+        que ajudam a desambiguar a menção. Sem pistas fortes, o sistema assume a classe estatisticamente mais provável.
+    </p>
+</div>
+
+<script>
+    (function () {
+        const cards = document.querySelectorAll('.ned-result-card');
+        let highConf = 0;
+        cards.forEach(card => {
+            const conf = parseFloat(card.dataset.confidence);
+            if (conf >= 0.7) highConf++;
+        });
+        const el = document.getElementById('ned-high-conf');
+        if (el) el.textContent = highConf;
+    })();
+</script>
 {% endif %}

@@ -28,12 +28,12 @@
             <span class="algo-arrow">→</span>
             <div class="algo-step done"><span class="algo-emoji">✂️</span>Tokenização</div>
             <span class="algo-arrow">→</span>
-            <div class="algo-step active"
+            <div class="algo-step active" id="step-span-enum"
                 style="border-color: #9333ea; color: #a78bfa; background: rgba(147, 51, 234, 0.08); box-shadow: 0 0 12px rgba(147, 51, 234, 0.2);">
                 <span class="algo-emoji">📏</span>Span Enum
             </div>
             <span class="algo-arrow">→</span>
-            <div class="algo-step active"
+            <div class="algo-step active" id="step-dot"
                 style="border-color: #3b82f6; color: #60a5fa; background: rgba(59, 130, 246, 0.08); box-shadow: 0 0 12px rgba(59, 130, 246, 0.2);">
                 <span class="algo-emoji">🧮</span>Dot Product
             </div>
@@ -44,7 +44,58 @@
         </div>
     </div>
 
-    <!-- Concept cards -->
+    <!-- INTERACTIVE SPAN ENUMERATION VISUALIZER -->
+    <div class="card" style="margin-bottom: 1rem;">
+        <div class="card-header">
+            <span class="card-title">📏 Como o Modelo Trabalha o Texto — Enumeração de Spans</span>
+            <span class="badge badge-ws" style="font-size: 0.65rem;">Interativo</span>
+        </div>
+        <div class="card-body">
+            <p style="font-size: 0.84rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1rem;">
+                Ao contrário do NER Tradicional (token-a-token), o GLiNER enumera <strong>todos os spans
+                    candidatos</strong>
+                e compara cada um com o vetor semântico de cada classe. Ajuste o comprimento máximo e veja a explosão
+                combinatória:
+            </p>
+
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                <label style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">Max Span:</label>
+                <input type="range" id="sota-max-span" min="1" max="5" value="3" style="flex: 1;"
+                    oninput="document.getElementById('sota-span-val').textContent = this.value; renderSpans();">
+                <span id="sota-span-val"
+                    style="font-family: var(--font-mono); color: var(--accent-blue); font-weight: 700; font-size: 1.1rem; min-width: 1.2em;">3</span>
+            </div>
+
+            <!-- Example sentence for span visualization -->
+            <div
+                style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.4rem;">
+                Frase de Exemplo:
+            </div>
+            <div
+                style="font-family: var(--font-mono); font-size: 0.9rem; padding: 0.75rem 1rem; background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 1rem; color: var(--text-primary);">
+                "Santos Dumont voou sobre Paris"
+            </div>
+
+            <div id="sota-span-grid"
+                style="display: flex; flex-wrap: wrap; gap: 0.4rem; min-height: 48px; padding: 0.75rem; background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 0.75rem;">
+            </div>
+
+            <div id="sota-span-stats" style="font-size: 0.8rem; color: var(--text-muted); text-align: right;"></div>
+
+            <!-- Dot Product explanation -->
+            <div
+                style="margin-top: 1rem; padding: 0.85rem 1rem; background: rgba(59, 130, 246, 0.04); border: 1px solid rgba(59, 130, 246, 0.15); border-radius: var(--radius-sm); font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">
+                🧮 <strong style="color: var(--accent-blue);">Dot Product:</strong>
+                Para cada span, o modelo computa
+                <code
+                    style="background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;">σ(span_vec · class_vec)</code>.
+                Se ≥ 0.5 → entidade detectada. Todos os spans são processados <strong>em paralelo</strong> —
+                sem a sequencialidade do BIO tradicional.
+            </div>
+        </div>
+    </div>
+
+    <!-- Concept cards: Tradicional vs SOTA -->
     <div class="card" style="margin-bottom: 1rem;">
         <div class="card-header">
             <span class="card-title">💡 Tradicional vs. SOTA</span>
@@ -62,7 +113,7 @@
                         <li>Tags fixas: PER, LOC, ORG, MISC</li>
                         <li>Requer re-treinar para novas classes</li>
                         <li>Classificação Token ↦ Tag (BIO)</li>
-                        <li>Sequencial (cada token influencia o próximo)</li>
+                        <li>Sequencial (cada token → próximo)</li>
                     </ul>
                 </div>
                 <div
@@ -110,6 +161,8 @@
                             Local</button>
                         <button type="button" class="demo-btn"
                             onclick="setSotaClasses('Pessoa, Local, Organizacao, Data')">🌐 Completo</button>
+                        <button type="button" class="demo-btn"
+                            onclick="setSotaClasses('Doença, Medicamento, Hospital')">💊 Saúde</button>
                     </div>
                 </div>
 
@@ -127,6 +180,8 @@
                         onclick="setSotaDemo('A Petrobras e o BNDES investiram R$2 bilhões em São Paulo durante janeiro de 2025.')">Econômico</button>
                     <button type="button" class="demo-btn"
                         onclick="setSotaDemo('Neymar Jr. assinou contrato com o Al-Hilal na Arábia Saudita em agosto de 2023.')">Esportivo</button>
+                    <button type="button" class="demo-btn"
+                        onclick="setSotaDemo('O Ministério da Saúde aprovou a vacina CoronaVac produzida pelo Instituto Butantan em São Paulo.')">Saúde</button>
                 </div>
 
                 <button type="submit" class="btn-analyze"
@@ -141,11 +196,9 @@
                 <div class="card-title" style="margin-bottom:0.75rem;">
                     🧮 Análise Vetorial Bidirecional (Span-to-Class)
                 </div>
-
                 <div id="sota-indicator" class="htmx-indicator" style="position: absolute; top: 0; right: 0;">
                     <div class="spinner" style="border-top-color: #9333ea;"></div>
                 </div>
-
                 <div id="sota-results"
                     style="background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem; min-height: 100px;">
                     <p class="placeholder-text">Clique em "Executar" para assistir a mágica Span-Based acontecendo.</p>
@@ -189,11 +242,43 @@
 </style>
 
 <script>
+    // Span enumeration visualizer
+    const SOTA_TOKENS = ["Santos", "Dumont", "voou", "sobre", "Paris"];
+    const SPAN_COLORS = [
+        ['rgba(59,130,246,0.12)', 'rgba(59,130,246,0.35)', '#60a5fa'],
+        ['rgba(147,51,234,0.12)', 'rgba(147,51,234,0.35)', '#a78bfa'],
+        ['rgba(34,211,238,0.12)', 'rgba(34,211,238,0.35)', '#22d3ee'],
+        ['rgba(52,211,153,0.12)', 'rgba(52,211,153,0.35)', '#34d399'],
+        ['rgba(245,158,11,0.12)', 'rgba(245,158,11,0.35)', '#fbbf24'],
+    ];
+
+    function renderSpans() {
+        const maxLen = parseInt(document.getElementById('sota-max-span').value);
+        const grid = document.getElementById('sota-span-grid');
+        const stats = document.getElementById('sota-span-stats');
+        let html = '';
+        let count = 0;
+        for (let len = 1; len <= Math.min(maxLen, SOTA_TOKENS.length); len++) {
+            const [bg, border, color] = SPAN_COLORS[(len - 1) % SPAN_COLORS.length];
+            for (let start = 0; start <= SOTA_TOKENS.length - len; start++) {
+                const span = SOTA_TOKENS.slice(start, start + len).join(' ');
+                html += `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:14px;font-size:0.78rem;font-weight:500;background:${bg};border:1px solid ${border};color:${color};cursor:default;" title="comprimento ${len}">
+                    <span style="font-size:0.6rem;opacity:0.6;">L${len}</span>${span}
+                </span>`;
+                count++;
+            }
+        }
+        grid.innerHTML = html || '<span style="color:var(--text-muted);font-size:0.82rem;">Sem spans.</span>';
+        stats.textContent = `${count} spans × classes = ${count} comparações de Dot Product`;
+    }
+
     function setSotaClasses(classes) {
         document.getElementById('sota-classes').value = classes;
     }
     function setSotaDemo(text) {
         document.getElementById('sota-text-input').value = text;
     }
+
+    document.addEventListener('DOMContentLoaded', renderSpans);
 </script>
 {% endblock %}

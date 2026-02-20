@@ -296,7 +296,7 @@
       position: relative;
     }
 
-    textarea#text-input {
+    .input-area textarea {
       width: 100%;
       min-height: 140px;
       background: var(--bg-card-3);
@@ -310,14 +310,15 @@
       resize: vertical;
       outline: none;
       transition: border-color 0.2s;
+      box-sizing: border-box;
     }
 
-    textarea#text-input:focus {
+    .input-area textarea:focus {
       border-color: var(--accent-blue);
       box-shadow: 0 0 0 3px rgba(79, 142, 247, 0.1);
     }
 
-    textarea#text-input::placeholder {
+    .input-area textarea::placeholder {
       color: var(--text-muted);
     }
 

@@ -1,67 +1,138 @@
 {% if results.is_empty() %}
-<p style="color: var(--text-secondary); font-size: 0.95rem;">Nenhuma entidade encontrada para as categorias solicitadas.
-</p>
+<p class="placeholder-text">Nenhuma entidade encontrada para as categorias solicitadas.</p>
 {% else %}
+
+<!-- Summary -->
+<div
+    style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 1.25rem;">
+    <div class="stat-cell">
+        <div class="stat-value">{{ results.len() }}</div>
+        <div class="stat-label">Spans Detectados</div>
+    </div>
+    <div class="stat-cell">
+        <div class="stat-value" style="color: var(--accent-blue);" id="sota-avg-score">—</div>
+        <div class="stat-label">Score Médio</div>
+    </div>
+</div>
+
+<!-- Annotated text view -->
+<div style="margin-bottom: 1.25rem;">
+    <div
+        style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.5rem;">
+        🏷️ Texto Anotado (Entidades Detectadas)
+    </div>
+    <div
+        style="padding: 1rem; background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); line-height: 2; font-size: 0.95rem; color: var(--text-primary);">
+        {% for res in results %}
+        <span style="display: inline-flex; align-items: baseline; gap: 4px; padding: 2px 8px; margin: 2px; border-radius: 6px;
+            background: rgba(59, 130, 246, {{ " {:.2}"|format(res.similarity_score * 0.3) }}); border: 1px solid
+            rgba(59, 130, 246, {{ "{:.2}" |format(res.similarity_score * 0.4) }}); cursor: default;"
+            title="Span: T{{ res.entity.start_token }}-T{{ res.entity.end_token }} | Classe: {{ res.class_name }} | Score: {{ "
+            {:.1}"|format(res.similarity_score * 100.0) }}%">
+            <strong>{{ res.entity.text }}</strong>
+            <span style="font-size: 0.65rem; padding: 1px 5px; border-radius: 8px; font-weight: 700;
+                background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(147, 51, 234, 0.2));
+                color: #a78bfa;">{{ res.class_name }}</span>
+        </span>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Detailed results -->
 <div style="display: flex; flex-direction: column; gap: 1rem;">
     {% for res in results %}
-    <div
-        style="background: var(--surface-light); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; position: relative;">
-        <!-- Indicador visual de proximidade (cor de fundo) -->
-        <div style="position: absolute; top: 0; left: 0; bottom: 0; width: 6px; background: rgba(59, 130, 246, {{ "
-            {:.1}"|format(res.similarity_score * 0.8) }});">
-        </div>
+    <div class="sota-result-card" data-score="{{ res.similarity_score }}"
+        style="background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; position: relative; transition: border-color 0.2s;"
+        onmouseenter="this.style.borderColor='rgba(147,51,234,0.5)'"
+        onmouseleave="this.style.borderColor='var(--border)'">
 
-        <div
-            style="padding: 1rem 1rem 1rem 1.5rem; display: flex; justify-content: space-between; align-items: flex-start;">
-            <div>
-                <h4 style="margin: 0; color: var(--text-primary); font-size: 1.1rem; line-height: 1.2;">"{{
-                    res.entity.text }}"</h4>
-                <div style="margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Classe Solicitada:</span>
-                    <span class="badge badge-rust"
-                        style="padding: 0.2rem 0.5rem; font-size: 0.8rem; background-color: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.5); color: #60a5fa;">{{
-                        res.class_name }}</span>
-                </div>
+        <!-- Score indicator stripe -->
+        <div style="position: absolute; top: 0; left: 0; bottom: 0; width: 5px;
+            background: linear-gradient(180deg, rgba(59, 130, 246, {{ " {:.1}"|format(res.similarity_score) }}),
+            rgba(147, 51, 234, {{ "{:.1}" |format(res.similarity_score) }}));"></div>
 
-                <!-- Barra de Progresso Simbolizando Dot Product -->
-                <div style="margin-top: 1rem;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.2rem;">
-                        <span style="font-size: 0.75rem; color: var(--text-secondary);">Similaridade Cos (Dot
-                            Product)</span>
-                        <span style="font-size: 0.75rem; color: var(--text-primary); font-family: var(--font-mono);">{{
-                            "{:.0}"|format(res.similarity_score * 100.0) }}%</span>
-                    </div>
+        <div style="padding: 1rem 1rem 1rem 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+                <!-- Left: Entity info -->
+                <div style="flex: 1;">
+                    <!-- Flow: Span × Classe = Score -->
                     <div
-                        style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
-                        <div style="height: 100%; width: {{ " {:.0}"|format(res.similarity_score * 100.0) }}%;
-                            background: linear-gradient(90deg, #3b82f6, #8b5cf6);">
+                        style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem;">
+                        <span
+                            style="padding: 3px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 600;
+                            background: rgba(147, 51, 234, 0.1); border: 1px solid rgba(147, 51, 234, 0.25); color: #a78bfa;">
+                            📏 "{{ res.entity.text }}"
+                        </span>
+                        <span style="font-size: 0.7rem; color: var(--text-muted);">×</span>
+                        <span
+                            style="padding: 3px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 600;
+                            background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.25); color: var(--accent-blue);">
+                            🎯 {{ res.class_name }}
+                        </span>
+                        <span style="font-size: 0.7rem; color: var(--text-muted);">=</span>
+                        <span
+                            style="padding: 3px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 700;
+                            background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.25); color: var(--accent-green);">
+                            ✅ {{ "{:.1}"|format(res.similarity_score * 100.0) }}%
+                        </span>
+                    </div>
+
+                    <!-- Similarity bar -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                            <span style="font-size: 0.72rem; color: var(--text-secondary);">Dot Product (Similaridade
+                                Vetorial)</span>
+                            <span
+                                style="font-size: 0.78rem; font-family: var(--font-mono); font-weight: 700; color: var(--text-primary);">
+                                {{ "{:.0}"|format(res.similarity_score * 100.0) }}%
+                            </span>
+                        </div>
+                        <div
+                            style="width: 100%; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; width: {{ " {:.0}"|format(res.similarity_score * 100.0) }}%;
+                                background: linear-gradient(90deg, #3b82f6, #8b5cf6, #9333ea); border-radius: 4px;
+                                transition: width 0.5s ease;"></div>
                         </div>
                     </div>
                 </div>
 
-            </div>
-
-            <div
-                style="background: rgba(255,255,255,0.05); padding: 0.5rem; border-radius: 6px; text-align: center; border: 1px dashed var(--border);">
-                <span
-                    style="display: block; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Span
-                    Interval</span>
-                <span style="font-family: var(--font-mono); font-size: 0.9rem; color: var(--text-primary);">T_{{
-                    res.entity.start_token }} - T_{{ res.entity.end_token }}</span>
+                <!-- Right: Span Interval -->
+                <div
+                    style="background: rgba(255,255,255,0.03); padding: 0.6rem 0.75rem; border-radius: var(--radius-sm); text-align: center; border: 1px solid var(--border); min-width: 80px;">
+                    <div
+                        style="font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">
+                        Span</div>
+                    <div
+                        style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--text-primary); font-weight: 600;">
+                        T<sub>{{ res.entity.start_token }}</sub> – T<sub>{{ res.entity.end_token }}</sub>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     {% endfor %}
 </div>
 
+<!-- Educational note -->
 <div
-    style="margin-top: 1.5rem; padding: 1rem; border-left: 4px solid var(--accent-magenta); background: rgba(217, 70, 239, 0.05); border-radius: 4px;">
-    <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
-        Diferente de sistemas baseados em palavras iterativas, na arquitetura Span-Based, nós testamos "pedaços da
-        frase" diretamente
-        contra a "intenção" (A classe) via multiplicação bidimensional de embbeddings (Dot Product). As entidades acima
-        foram as que
-        ultrapassaram o gatilho mínimo de segurança para a Intenção Zero-Shot que foi passada.
+    style="margin-top: 1.25rem; padding: 0.75rem 1rem; border-left: 4px solid #9333ea; background: rgba(147, 51, 234, 0.04); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;">
+    <p style="margin: 0; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6;">
+        🧮 <strong>Dot Product:</strong> Cada span de texto é representado como um vetor N-dimensional.
+        O modelo compara esse vetor com o vetor semântico de cada classe via <code
+            style="background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 3px;">dot(span_vec, class_vec)</code>
+        + <code style="background: rgba(0,0,0,0.3); padding: 1px 5px; border-radius: 3px;">sigmoid()</code>.
+        Score &gt; 0.5 → entidade detectada.
     </p>
 </div>
+
+<script>
+    (function () {
+        const cards = document.querySelectorAll('.sota-result-card');
+        let total = 0;
+        cards.forEach(card => { total += parseFloat(card.dataset.score); });
+        const avg = cards.length > 0 ? (total / cards.length) * 100 : 0;
+        const el = document.getElementById('sota-avg-score');
+        if (el) el.textContent = avg.toFixed(0) + '%';
+    })();
+</script>
 {% endif %}

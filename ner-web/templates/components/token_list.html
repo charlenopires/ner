@@ -1,15 +1,89 @@
 {% if tokens.is_empty() %}
-<p style="color: var(--text-secondary); font-size: 0.95rem;">Nenhum token gerado.</p>
+<p class="placeholder-text">Nenhum token gerado.</p>
 {% else %}
-<div style="margin-bottom: 1rem;">
-    <span style="font-size: 0.85rem; color: var(--text-secondary);">Total de tokens: {{ tokens.len() }}</span>
+<!-- Stats bar -->
+<div
+    style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 1.25rem;">
+    <div class="stat-cell">
+        <div class="stat-value">{{ tokens.len() }}</div>
+        <div class="stat-label">Total Tokens</div>
+    </div>
+    <div class="stat-cell">
+        <div class="stat-value" style="color: var(--accent-cyan);" id="tok-char-count">—</div>
+        <div class="stat-label">Caracteres</div>
+    </div>
 </div>
-<div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+
+<!-- Token grid with rich chips -->
+<div id="tok-chip-container" style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem;">
     {% for token in tokens %}
-    <span
-        style="background: var(--surface-light); border: 1px solid var(--border); padding: 0.35rem 0.65rem; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-primary);">
-        {{ token.text }}
-    </span>
+    <div class="token-chip"
+        style="display: inline-flex; flex-direction: column; align-items: center; background: var(--bg-card-3); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.7rem; cursor: default; transition: all 0.2s ease; position: relative;"
+        title="Offset: {{ token.start }}–{{ token.end }}&#10;Comprimento: {{ token.text.len() }} chars&#10;Index: {{ loop.index0 }}"
+        onmouseenter="this.style.borderColor='var(--accent-blue)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(59,130,246,0.15)';"
+        onmouseleave="this.style.borderColor='var(--border)'; this.style.transform='none'; this.style.boxShadow='none';">
+        <!-- Token index -->
+        <span
+            style="font-size: 0.55rem; color: var(--text-muted); font-family: var(--font-mono); letter-spacing: 0.05em; margin-bottom: 2px;">
+            T{{ loop.index0 }}
+        </span>
+        <!-- Token text -->
+        <span
+            style="font-family: var(--font-mono); font-size: 0.88rem; color: var(--text-primary); font-weight: 600; line-height: 1.2;">
+            {{ token.text }}
+        </span>
+        <!-- Offset range -->
+        <span
+            style="font-size: 0.5rem; color: var(--accent-blue); font-family: var(--font-mono); margin-top: 2px; opacity: 0.7;">
+            {{ token.start }}:{{ token.end }}
+        </span>
+    </div>
     {% endfor %}
 </div>
+
+<!-- Visual offset map -->
+<div style="margin-top: 1rem;">
+    <div
+        style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.5rem;">
+        📐 Mapa de Offsets (posição no texto original)
+    </div>
+    <div
+        style="display: flex; flex-wrap: wrap; gap: 2px; padding: 0.75rem; background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: var(--font-mono); font-size: 0.7rem;">
+        {% for token in tokens %}
+        <div style="display: flex; align-items: center; gap: 2px;">
+            <span
+                style="background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.25); color: var(--accent-blue); padding: 2px 6px; border-radius: 4px; white-space: nowrap;">
+                {{ token.text }}<sub style="font-size: 0.55rem; opacity: 0.6;">[{{ token.start }}]</sub>
+            </span>
+            {% if !loop.last %}
+            <span style="color: var(--text-muted); font-size: 0.6rem;">·</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Educational note -->
+<div
+    style="margin-top: 1rem; padding: 0.75rem 1rem; border-left: 4px solid var(--accent-cyan); background: rgba(34, 211, 238, 0.04); border-radius: 0 var(--radius-sm) var(--radius-sm) 0;">
+    <p style="margin: 0; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6;">
+        💡 <strong>Dica:</strong> Passe o mouse sobre cada token para ver o offset exato no texto original.
+        Os offsets permitem reconstruir o texto original a partir dos tokens — essencial para NER, pois precisamos
+        saber <em>onde</em> cada entidade aparece no texto.
+    </p>
+</div>
+
+<script>
+    // Count total characters
+    (function () {
+        const chips = document.querySelectorAll('#tok-chip-container .token-chip');
+        let totalChars = 0;
+        chips.forEach(chip => {
+            const text = chip.querySelector('span:nth-child(2)').textContent.trim();
+            totalChars += text.length;
+        });
+        const el = document.getElementById('tok-char-count');
+        if (el) el.textContent = totalChars;
+    })();
+</script>
 {% endif %}
