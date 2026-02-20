@@ -2,6 +2,7 @@
 # Rust / Cargo
 # ============================================================
 /target/
+target/
 **/*.rs.bk
 Cargo.lock          # remova esta linha se quiser versionar o lock (binários: mantenha)
 

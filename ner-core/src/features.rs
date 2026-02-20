@@ -110,6 +110,14 @@ impl Default for Gazetteers {
 /// # Retorno
 /// Retorna um `Vec<FeatureVector>` alinhado com os tokens de entrada.
 /// O índice `i` do retorno corresponde ao token `i` da entrada.
+///
+/// # Exemplo
+/// Para "O Brasil venceu", o vetor do índice 1 ("Brasil") conterá:
+/// - `word=brasil`
+/// - `is_capitalized`
+/// - `prev_word=o`
+/// - `next_word=venceu`
+/// - `in_location_gazetteer` (se estiver no gazetteer)
 pub fn extract_features(tokens: &[Token], gazetteers: &Gazetteers) -> Vec<FeatureVector> {
     tokens
         .iter()
@@ -119,6 +127,12 @@ pub fn extract_features(tokens: &[Token], gazetteers: &Gazetteers) -> Vec<Featur
 }
 
 /// Extrai features para um único token em seu contexto
+///
+/// Implementa a lógica detalhada de extração, cobrindo:
+/// 1. **Morfologia**: Sufixos, prefixos, capitalização.
+/// 2. **Contexto**: Palavras vizinhas (unigramas e bigramas).
+/// 3. **Conhecimento Externo**: Verificação em gazetteers.
+/// 4. **Posição**: Se é início ou fim de frase.
 pub fn extract_for_token(tokens: &[Token], i: usize, gazetteers: &Gazetteers) -> FeatureVector {
     let mut fv = FeatureVector::new(i);
     let token = &tokens[i];

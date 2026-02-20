@@ -57,14 +57,18 @@ impl HmmModel {
 
     /// Treina o HMM com o corpus fornecido (Supervised Learning).
     ///
-    /// O treinamento consiste em **contar** as ocorrências no corpus e normalizar
-    /// para obter probabilidades. Aplica **Smoothing (Laplace Add-1)** para evitar
-    /// probabilidades zero para eventos não vistos (mas possíveis).
+    /// # Processo de Treinamento
+    /// 1. **Contagem**: Itera sobre o corpus e conta quantas vezes cada tag aparece, 
+    ///    quantas vezes uma tag segue outra (transição) e quantas vezes uma tag gera uma palavra (emissão).
+    /// 2. **Smoothing (Suavização)**: Aplica *Add-1 Smoothing* (Laplace) para garantir que
+    ///    nenhuma probabilidade seja zero (o que quebraria o logaritmo).
+    /// 3. **Log-Probabilidades**: Converte tudo para logaritmo para estabilidade numérica.
     ///
-    /// # Passos
-    /// 1. Conta transições, emissões e tags iniciais.
-    /// 2. Aplica suavização: $P(w|t) = \frac{count(t,w) + 1}{count(t) + |V| + 1}$.
-    /// 3. Converte para log-space.
+    /// # Exemplo
+    /// ```rust
+    /// // Suponha corpus com [("Lula", "B-PER"), ("é", "O")]
+    /// // P("Lula" | "B-PER") = count("Lula", "B-PER") / count("B-PER")
+    /// ```
     pub fn train(&mut self, corpus: &[AnnotatedSentence]) {
         let mut transition_counts: HashMap<(String, String), u32> = HashMap::new();
         let mut emission_counts: HashMap<(String, String), u32> = HashMap::new();
@@ -150,13 +154,14 @@ impl HmmModel {
 
     /// Decodifica uma sequência de tokens para encontrar a melhor sequência de tags.
     ///
-    /// Utiliza o **Algoritmo de Viterbi** para encontrar o caminho que maximiza a probabilidade
-    /// total: $ \arg\max_y P(y|x) $.
+    /// Utiliza o **Algoritmo de Viterbi**, que é um algoritmo de programação dinâmica
+    /// para encontrar o caminho mais provável em um HMM.
     ///
-    /// # Como funciona
-    /// 1. **Inicialização**: Calcula probabilidade da primeira tag ($P(start) \cdot P(word|tag)$).
-    /// 2. **Recursão**: Para cada token subsequente, encontra a melhor transição vinda do token anterior.
-    /// 3. **Backtracking**: Reconstrói o caminho ótimo do fim para o começo.
+    /// # Complexidade
+    /// $O(N \cdot T^2)$, onde $N$ é o número de tokens e $T$ o número de tags possíveis.
+    ///
+    /// # Retorno
+    /// Retorna a lista de tags preditas (ex: `["B-PER", "O", "O"]`) alinhada com os tokens de entrada.
     pub fn predict(&self, tokens: &[String]) -> Vec<String> {
         if tokens.is_empty() {
             return Vec::new();

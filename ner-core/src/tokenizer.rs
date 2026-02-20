@@ -43,6 +43,7 @@ pub struct Token {
     /// Índice de byte final no texto original (exclusivo).
     pub end: usize,
     /// Índice sequencial do token na lista (0, 1, 2...).
+    /// Útil para algoritmos que olham vizinhos (tokens[i-1]).
     pub index: usize,
 }
 
@@ -103,10 +104,15 @@ pub fn tokenize(text: &str) -> Vec<Token> {
 /// Tokeniza um texto com o modo especificado.
 pub fn tokenize_with_mode(text: &str, mode: TokenizerMode) -> Vec<Token> {
     let mut tokens = match mode {
+        // Caractere a caractere: bom para lidar com "typos" ou línguas sem espaçamento.
         TokenizerMode::CharLevel => tokenize_char_level(text),
+        // Agressivo: remove sufixos (-mente) e clíticos (-se), normalizando o texto.
         TokenizerMode::Aggressive => tokenize_aggressive(text),
+        // Conservador: Preserva "São Paulo" como um único token.
         TokenizerMode::Conservative => tokenize_conservative(text),
+        // BPE Simulado: sub-words.
         TokenizerMode::BpeLite => tokenize_bpe_lite(text),
+        // Padrão: espaços e pontuações, preservando abreviações.
         TokenizerMode::Standard => tokenize_standard(text),
     };
 

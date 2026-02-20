@@ -180,13 +180,19 @@ pub fn viterbi_decode(model: &CrfModel, feature_vectors: &[FeatureVector]) -> Vi
     }
 
     // === Backtracking ===
-    let (mut best_last, best_total_score) = best_in_slice(&viterbi);
-    let mut best_sequence: Vec<Tag> = vec![tags[0].clone(); n_tokens];
-    best_sequence[n_tokens - 1] = tags[best_last].clone();
+    // O Viterbi constrói o caminho de trás para frente.
+    // Começamos na última posição com a tag que tem o maior score total.
+    let (mut best_last_tag_index, best_total_score) = best_in_slice(&viterbi);
+    
+    // Inicializa o vetor de resultado
+    let mut best_sequence: Vec<Tag> = vec![Tag::Outside; n_tokens];
+    best_sequence[n_tokens - 1] = tags[best_last_tag_index].clone();
 
+    // Reconstrói o caminho seguindo os ponteiros `backptr`
     for i in (0..n_tokens - 1).rev() {
-        best_last = backptr[i + 1][best_last];
-        best_sequence[i] = tags[best_last].clone();
+        let prev_tag_index = backptr[i + 1][best_last_tag_index];
+        best_sequence[i] = tags[prev_tag_index].clone();
+        best_last_tag_index = prev_tag_index;
     }
 
     ViterbiResult {
@@ -196,7 +202,9 @@ pub fn viterbi_decode(model: &CrfModel, feature_vectors: &[FeatureVector]) -> Vi
     }
 }
 
-/// Retorna (índice, valor) do máximo em um slice
+/// Helper: Encontra o índice e o valor do maior elemento em um slice de f64.
+///
+/// Lida com NaN e Infinity usando `partial_cmp`. Retorna `(0, -inf)` se vazio.
 fn best_in_slice(scores: &[f64]) -> (usize, f64) {
     scores
         .iter()
@@ -206,7 +214,14 @@ fn best_in_slice(scores: &[f64]) -> (usize, f64) {
         .unwrap_or((0, f64::NEG_INFINITY))
 }
 
-/// Converte scores Viterbi em probabilidades softmax (para confiança)
+/// Converte scores Viterbi em probabilidades (Softmax).
+///
+/// O algoritmo de Viterbi trabalha com `log-probabilities` (scores não normalizados).
+/// Para exibir uma "confiança" percentual (0% a 100%) para o usuário, aplicamos a função Softmax:
+///
+/// $$ P(y_i) = \frac{e^{s_i}}{\sum e^{s_j}} $$
+///
+/// Onde $s_i$ é o score da tag $i$.
 pub fn scores_to_probs(scores: &[f64]) -> Vec<f64> {
     if scores.is_empty() {
         return vec![];

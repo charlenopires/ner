@@ -4,3 +4,5 @@
 
 ner-web/src/main.rs:
 ner-web/src/templates/index.html:
+
+# env-dep:CARGO_MANIFEST_DIR=/Users/fazapp/projects/opensource/ner/ner-web

@@ -16,10 +16,19 @@
 //! - Educação
 
 /// Uma sentença anotada no formato BIO
+///
+/// O formato BIO (Begin, Inside, Outside) é padrão para NER:
+/// - **B-TYPE**: Início de uma entidade do tipo TYPE.
+/// - **I-TYPE**: Continuação de uma entidade do tipo TYPE.
+/// - **O**: Fora de qualquer entidade.
 pub struct AnnotatedSentence {
+    /// O texto completo da sentença (idealmente sem tokenização prévia,
+    /// mas aqui já estruturado para facilitar).
     pub text: &'static str,
+    /// Domínio temático (utilizado para análises de performance por área).
     pub domain: &'static str,
-    /// Pares (palavra, tag_BIO)
+    /// Pares (palavra, tag_BIO).
+    /// Exemplo: `[("Lula", "B-PER"), ("viajou", "O")]`
     pub annotations: &'static [(&'static str, &'static str)],
 }
 
@@ -425,6 +434,13 @@ pub fn get_corpus() -> Vec<AnnotatedSentence> {
 }
 
 /// Extrai gazetteers do corpus: conjuntos de entidades conhecidas por categoria
+///
+/// Varre todo o corpus de treinamento e constrói listas (sets) de nomes conhecidos.
+/// Isso é usado para criar features binárias poderosas (ex: "está_no_gazetteer_de_pessoas?").
+///
+/// # Retorno
+/// Tupla contendo vetores de strings para:
+/// (Pessoas, Locais, Organizações, Miscelânea)
 pub fn extract_gazetteers_from_corpus() -> (
     Vec<String>, // persons
     Vec<String>, // locations

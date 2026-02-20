@@ -19,8 +19,11 @@ use crate::features::{self, FeatureVector, Gazetteers};
 ///
 /// # Lazy Averaging
 /// Calcular a média real a cada passo seria $O(N \cdot T)$. Esta implementação usa
-/// "Lazy Averaging" para atualizar a média de uma feature apenas quando ela é ativa,
-/// mantendo complexidade constante.
+/// "Lazy Averaging" para atualizar a média de uma feature **apenas quando ela é ativa**,
+/// mantendo complexidade constante por passo.
+///
+/// Isso resulta no mesmo modelo matemático que o Averaged Perceptron padrão,
+/// mas com eficiência computacional muito maior.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerceptronModel {
     /// Tokenizer interno (para testes e uso standalone).
@@ -50,6 +53,12 @@ impl PerceptronModel {
     }
 
     /// Treina o modelo (Online Learning).
+    ///
+    /// O algoritmo itera pelo corpus várias vezes (`iterations`). Para cada sentença:
+    /// 1. Faz uma predição com os pesos atuais.
+    /// 2. Se a predição estiver errada, atualiza os pesos (promove a tag correta, penaliza a errada).
+    ///
+    /// Ao final, calcula a média dos pesos (finalize_weights) para obter o modelo robusto.
     pub fn train(&mut self, corpus: &[AnnotatedSentence], iterations: usize) {
         // Coleta tags
         let mut tag_set = HashSet::new();

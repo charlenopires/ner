@@ -225,6 +225,9 @@ pub struct EntitySpan {
 /// - Continua a entidade enquanto encontrar `I-XXX` da **mesma** categoria.
 /// - Finaliza a entidade ao encontrar `O`, `B-YYY` ou `I-YYY` (de outra categoria).
 ///
+/// Este passo é fundamental para transformar a saída "token a token" do modelo
+/// em objetos estruturados úteis para a aplicação final.
+///
 /// # Exemplo
 /// `[B-PER, I-PER, O, B-LOC]` -> `[EntitySpan(PER), EntitySpan(LOC)]`
 pub fn tokens_to_spans(tagged: &[TaggedToken], original_text: &str) -> Vec<EntitySpan> {

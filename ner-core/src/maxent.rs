@@ -49,14 +49,14 @@ impl MaxEntModel {
 
     /// Treina o modelo usando **Stochastic Gradient Descent (SGD)**.
     ///
-    /// O objetivo é maximizar a Log-Likelihood (ou minimizar a Negative Log-Likelihood).
-    /// O gradiente para cada peso $w_j$ é simples:
-    /// $$ \frac{\partial L}{\partial w_j} = \text{Esperado}_j - \text{Observado}_j $$
+    /// Diferente do HMM que conta frequências, o MaxEnt é treinado iterativamente para
+    /// ajustar os pesos e minimizar o erro de classificação no treino.
     ///
     /// # Parâmetros
-    /// - `iterations`: Quantas vezes passar por todo o corpus (épocas).
-    /// - `learning_rate` ($\eta$): Tamanho do passo de atualização.
-    /// - `lambda` ($\lambda$): Parâmetro de regularização L2 (weight decay) para evitar overfitting.
+    /// * `corpus` - Dados anotados para treino.
+    /// * `iterations` - Número de épocas (passadas completas pelo corpus).
+    /// * `learning_rate` ($\eta$) - Taxa de aprendizado (tamanho do passo do gradiente).
+    /// * `lambda` ($\lambda$) - Fator de regularização L2 (ajuda a evitar overfitting punindo pesos muito grandes).
     pub fn train(&mut self, corpus: &[AnnotatedSentence], iterations: usize, learning_rate: f64, lambda: f64) {
         // 1. Coleta todas as tags e inicializa estrutura
         let mut tag_set = HashSet::new();
@@ -142,7 +142,14 @@ impl MaxEntModel {
         }
     }
 
-    /// Prediz tags para uma sentença (Greedy decoding)
+    /// Prediz tags para uma sentença (Greedy Decoding).
+    ///
+    /// # Nota
+    /// Nesta implementação simplificada, a decisão é **Local** (Greedy):
+    /// Para cada token, escolhemos a tag com maior probabilidade isoladamente.
+    ///
+    /// Em implementações mais avançadas (MEMM), usaríamos Viterbi considerando
+    /// a tag anterior como uma feature.
     pub fn predict(&self, tokens: &[String]) -> Vec<String> {
         let gaz = Gazetteers::new();
         // Reconstrói tokens

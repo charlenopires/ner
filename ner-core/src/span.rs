@@ -15,6 +15,21 @@ use crate::corpus::AnnotatedSentence;
 use crate::features::{FeatureVector, Gazetteers};
 use crate::tokenizer::Token;
 
+/// Representa um span (intervalo) de tokens com uma label associada.
+///
+/// # Exemplo
+/// Em "Universidade de São Paulo", o span "São Paulo":
+/// `Span { start: 2, end: 4, label: "LOC" }`
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Span {
+    /// Índice do token inicial (inclusivo)
+    pub start: usize,
+    /// Índice do token final (exclusivo)
+    pub end: usize,
+    /// Rótulo da entidade (ex: "PER", "ORG")
+    pub label: String,
+}
+
 /// Modelo NER baseado em Spans.
 ///
 /// Diferente dos modelos de sequência (CRF, HMM, Perceptron) que classificam cada token
@@ -51,16 +66,20 @@ impl SpanModel {
 
     /// Treina o modelo Span-based.
     ///
-    /// Utiliza um algoritmo do tipo Perceptron/SGD:
-    /// Para cada sentença, gera todos os spans candidatos, classifica-os, e atualiza
-    /// os pesos se a classificação divergir dos spans "Gold" (corretos).
+    /// Utiliza um algoritmo do tipo Perceptron/SGD Estruturado ou Local:
+    ///
+    /// 1. **Geração de Candidatos**: Para cada sentença, gera todos os spans válidos (dentro de `max_span_len`).
+    /// 2. **Feedback Loop**:
+    ///    - Compara o span candidato com o Gold Standard (convertido de BIO para Spans).
+    ///    - Se o modelo prever errado para aquele span específico, atualiza os pesos.
+    /// 3. **Observação**: Atualmente treina de forma independente (cada span é classificado isoladamente).
     pub fn train(&mut self, corpus: &[AnnotatedSentence], iterations: usize) {
         // 1. Coleta tags (excluindo O/B-/I- prefixos, queremos apenas categorias reais + "O")
         let mut tag_set = HashSet::new();
         tag_set.insert("O".to_string());
         
         for s in corpus {
-            for (_, tag) in s.annotations {
+            for (i, (word, tag)) in s.annotations.iter().enumerate() {
                 if tag != &"O" {
                     let clean_tag = tag.trim_start_matches("B-").trim_start_matches("I-");
                     tag_set.insert(clean_tag.to_string());
@@ -97,7 +116,7 @@ impl SpanModel {
                     // Se o span start..end estiver no gold set, usa aquele label. Caso contrário, é "O".
                     let true_label = gold_span_set.iter()
                         .find(|(s, e, _)| *s == start && *e == end)
-                        .map(|(_, _, l)| l.clone())
+                        .map(|(_, _, l): &(usize, usize, String)| l.clone())
                         .unwrap_or_else(|| "O".to_string());
 
                     // Predição

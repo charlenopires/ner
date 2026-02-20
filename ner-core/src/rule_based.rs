@@ -92,14 +92,19 @@ impl RuleEngine {
 
     /// Aplica todas as regras à sequência de tokens.
     ///
-    /// Segue a seguinte ordem de prioridade (uma regra posterior pode sobrescrever ou preencher lacunas):
-    /// 1. **Gazetteers Simples** (Pessoas, Locais): Casamento exato de token único.
-    /// 2. **Gazetteers Compostos** (Orgs, Misc): Casamento de n-gramas.
-    /// 3. **Padrões de Contexto** (Títulos): "Presidente X" inferindo que X é Pessoa.
-    /// 4. **Sufixos/Indicadores** (Orgs): "Empresa X Ltda" inferindo que X é Organização.
-    /// 5. **Regex** (CNPJ/CPF): Validação de formato para documentos.
+    /// # Ordem de Prioridade
+    /// As regras são aplicadas em cascata (uma regra posterior pode sobrescrever ou preencher lacunas),
+    /// mas a ordem de execução no código define a "última palavra".
     ///
-    /// Retorna um vetor onde cada posição contém `Some(RuleMatch)` se alguma regra foi ativada.
+    /// 1. **Gazetteers Simples**: Casamento exato de token único (ex: "Lula" -> PER).
+    /// 2. **Gazetteers Compostos**: Casamento de n-gramas (ex: "Banco do Brasil" -> ORG).
+    /// 3. **Padrões de Contexto**: (ex: "Presidente [X]" -> X é PER).
+    /// 4. **Sufixos/Indicadores**: (ex: "[X] Ltda" -> X é ORG).
+    /// 5. **Regex**: Validação de formato (ex: CNPJ).
+    ///
+    /// # Retorno
+    /// Retorna um vetor do mesmo tamanho dos tokens, onde cada posição contém `Some(RuleMatch)`
+    /// se alguma regra disparou para aquele token.
     pub fn apply(&self, tokens: &[Token]) -> Vec<Option<RuleMatch>> {
         let mut result: Vec<Option<RuleMatch>> = vec![None; tokens.len()];
 
@@ -283,6 +288,10 @@ impl Default for RuleEngine {
 }
 
 /// Verifica se um token tem formato de CNPJ brasileiro
+///
+/// # Lógica
+/// Verifica se tem 14 dígitos e contém os separadores padrão (., /, -).
+/// Não faz validação de dígito verificador para performance.
 fn is_cnpj(s: &str) -> bool {
     let digits: String = s.chars().filter(|c| c.is_numeric()).collect();
     digits.len() == 14

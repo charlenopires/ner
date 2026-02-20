@@ -49,7 +49,9 @@ pub struct CrfModel {
     pub emission_weights: HashMap<String, f64>,
     
     /// Matriz de transição $T[u][v]$ onde $u$ é a tag anterior e $v$ a atual.
+    ///
     /// O valor representa a "afinidade" entre as duas tags.
+    /// Ex: `Score(B-PER -> I-PER)` deve ser alto, enquanto `Score(B-PER -> I-ORG)` deve ser baixo.
     pub transition_weights: Vec<Vec<f64>>,
 }
 
@@ -65,11 +67,24 @@ impl CrfModel {
 
     /// Calcula o **Score de Emissão** para uma tag em um determinado token.
     ///
-    /// Corresponde ao produto escalar entre o vetor de features do token e os pesos
-    /// da tag:
+    /// # O que é Score de Emissão?
+    ///
+    /// Representa a força da associação entre as características locais do token (ex: palavra, sufixo)
+    /// e uma tag específica, ignorando o contexto vizinho.
+    ///
+    /// Fórmula:
     /// $$ \text{score}(y_i, x, i) = \sum_{k} w_{k, y_i} \cdot f_k(x, i) $$
     ///
     /// Onde $f_k(x, i)$ é 1 se a feature $k$ está presente no token $i$, e 0 caso contrário.
+    ///
+    /// # Exemplo
+    ///
+    /// Se o token é "Brasília" e tem as features:
+    /// - `word=brasília`
+    /// - `is_capitalized`
+    /// - `in_location_gazetteer`
+    ///
+    /// O score para `B-LOC` somará os pesos de todas essas features associadas a `B-LOC`.
     pub fn emission_score(&self, features: &FeatureVector, tag: &Tag) -> f64 {
         let tag_label = tag.label();
         features
@@ -78,16 +93,24 @@ impl CrfModel {
             .map(|(feat_name, feat_val)| {
                 // Concatena nome da feature e label da tag para buscar no mapa plano
                 let key = format!("{feat_name}|{tag_label}");
-                feat_val * self.emission_weights.get(&key).unwrap_or(&0.0)
+                let weight = self.emission_weights.get(&key).unwrap_or(&0.0);
+                feat_val * weight
             })
             .sum()
     }
 
     /// Calcula o **Score de Transição** entre duas tags consecutivas.
     ///
+    /// # O que é Score de Transição?
+    ///
+    /// Representa a probabilidade (em escala logarítmica ou não normalizada) de ver a tag `next`
+    /// imediatamente após a tag `prev`.
+    ///
     /// $$ \text{trans}(y_{i-1}, y_i) $$
     ///
-    /// Retorna o peso associado à mudança da tag `prev` para a tag `next`.
+    /// Isso captura regras gramaticais das entidades, como:
+    /// - Uma entidade `I-PER` (Inside Person) só deve vir depois de `B-PER` ou outro `I-PER`.
+    /// - Não faz sentido `I-ORG` vir logo depois de `B-LOC`.
     pub fn transition_score(&self, prev: &Tag, next: &Tag) -> f64 {
         self.transition_weights[prev.index()][next.index()]
     }
@@ -135,6 +158,11 @@ pub struct CrfScores {
 }
 
 /// Calcula os scores de emissão para todos os tokens e tags
+///
+/// # Importância
+///
+/// Pré-calcular isso é uma otimização importante para o algoritmo de Viterbi,
+/// evitando re-calcular produtos escalares repetidamente.
 pub fn compute_emission_scores(
     model: &CrfModel,
     feature_vectors: &[FeatureVector],

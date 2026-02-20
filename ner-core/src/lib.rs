@@ -37,7 +37,7 @@
 //!
 //! // 4. Exibe as entidades encontradas
 //! for entity in entities {
-//!     println!("Entidade: {} ({:?}) - Score: {:.2}", entity.text, entity.tag, entity.score);
+//!     println!("Entidade: {} ({:?}) - Confiança: {:.2}", entity.text, entity.category, entity.confidence);
 //! }
 //! ```
 //!

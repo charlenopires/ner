@@ -22,6 +22,12 @@ use tower_http::services::ServeDir;
 use tracing::info;
 
 /// Estado compartilhado da aplicação
+///
+/// O Axum exige que o estado seja `Clone` e `Send` + `Sync` para ser compartilhado entre threads.
+/// Envolvemos o `pipeline` em um `Arc` (Atomic Reference Counting) implicitamente ao colocar
+/// no `AppState` que será envolto em `Arc` na main.
+///
+/// O `NerPipeline` é imutável após a criação (só leitura do modelo), então é thread-safe.
 struct AppState {
     pipeline: NerPipeline,
 }
@@ -138,6 +144,9 @@ async fn demo_texts_handler() -> impl IntoResponse {
 }
 
 /// Upgrade HTTP → WebSocket
+///
+/// Rota que inicia o handshake WebSocket. Se bem sucedido, transfere o controle
+/// para `handle_websocket`.
 async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
@@ -145,7 +154,17 @@ async fn ws_handler(
     ws.on_upgrade(move |socket| handle_websocket(socket, state))
 }
 
-/// Lógica do WebSocket: recebe texto, executa pipeline e envia eventos em tempo real
+/// Lógica do WebSocket: recebe texto, executa pipeline e envia eventos em tempo real.
+///
+/// # Protocolo
+/// 1. Cliente envia JSON: `{"text": "...", "mode": "hybrid", "tokenizer_mode": "standard"}`
+/// 2. Servidor responde com fluxo de eventos JSON:
+///    - `TokenizationDone`
+///    - `FeaturesComputed`...
+///    - `Done`
+///
+/// A análise roda em uma thread dedicada (`spawn_blocking`) para não travar o loop de eventos assíncrono do Tokio,
+/// já que o pipeline é CPU-bound e síncrono.
 async fn handle_websocket(mut socket: WebSocket, state: Arc<AppState>) {
     info!("WebSocket conectado");
 
@@ -181,26 +200,30 @@ async fn handle_websocket(mut socket: WebSocket, state: Arc<AppState>) {
                     pipeline_arc.pipeline.analyze_streaming(&text_for_thread, mode, tokenizer_mode, tx_std);
                 });
 
-                // Coleta todos os eventos da fila std::mpsc (após pipeline concluir)
-                handle.await.ok();
+                // Aguarda o término do processamento
+                if handle.await.is_err() {
+                    // Se a thread panicar
+                    let _ = socket.send(Message::Text(serde_json::json!({
+                        "type": "Error",
+                        "data": { "message": "Erro interno no pipeline" }
+                    }).to_string().into())).await;
+                    continue;
+                }
 
-                // Coleta todos os eventos numa Vec (isso descarta o rx_std, que não é Send)
+                // Coleta todos os eventos numa Vec (o rx_std não é Async, então consumimos tudo de uma vez após o término)
+                // OBS: Numa implementação real de streaming, o canal deveria ser consumido enquanto a thread produz.
+                // Mas como o mpsc std bloqueia, e queremos async await no socket send, essa abordagem de bufferizar
+                // é um compromisso simples para este demo.
                 let events: Vec<PipelineEvent> = rx_std.try_iter().collect();
 
-                loop {
-                    // Send events with delay
-                    // We need to iterate carefully since we can't await in a simple for loop over iterator
-                    // Actually, `events` is a Vec, so we can iterate.
-                    for event in &events {
-                         if let Ok(json) = serde_json::to_string(event) {
-                             if socket.send(Message::Text(json.into())).await.is_err() {
-                                 return; // cliente desconectou
-                             }
-                             // Pequena pausa para animação visual (passo a passo)
-                             tokio::time::sleep(tokio::time::Duration::from_millis(35)).await;
+                for event in events {
+                     if let Ok(json) = serde_json::to_string(&event) {
+                         if socket.send(Message::Text(json.into())).await.is_err() {
+                             return; // cliente desconectou
                          }
-                    }
-                    break;
+                         // Pequena pausa para animação visual (passo a passo) no front-end ficar fluida
+                         tokio::time::sleep(tokio::time::Duration::from_millis(35)).await;
+                     }
                 }
             }
             Message::Close(_) => {

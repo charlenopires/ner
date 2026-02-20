@@ -139,8 +139,16 @@ impl NerPipeline {
 
     /// Processa o texto de forma síncrona e retorna o resultado final.
     ///
-    /// Ideal para processamento em lote ou quando não há necessidade de feedback visual.
-    /// Usa internamente o modo `Hybrid` e tokenização `Standard`.
+    /// Ideal para processamento em lote ou validação rápida quando não há necessidade
+    /// de feedback visual passo-a-passo.
+    ///
+    /// # Exemplo
+    /// ```
+    /// use ner_core::{NerPipeline, AlgorithmMode, TokenizerMode};
+    /// let pipeline = NerPipeline::new();
+    /// let (tokens, entities) = pipeline.analyze_with_mode("o Brasil venceu.", AlgorithmMode::RulesOnly, TokenizerMode::Standard);
+    /// assert_eq!(entities[0].text, "Brasil");
+    /// ```
     pub fn analyze(&self, text: &str) -> (Vec<TaggedToken>, Vec<EntitySpan>) {
         self.analyze_with_mode(text, AlgorithmMode::Hybrid, TokenizerMode::Standard)
     }
@@ -171,16 +179,18 @@ impl NerPipeline {
 
     /// Executa o pipeline enviando eventos de progresso em tempo real.
     ///
-    /// Este método é o coração da interface visual. Ele não retorna valores diretamente,
-    /// mas sim "empurra" `PipelineEvent`s pelo canal `tx`.
+    /// Este método é o coração da interface visual (ner-web). Ele não retorna valores diretamente,
+    /// mas sim "empurra" `PipelineEvent`s pelo canal `tx`. Isso permite que o frontend
+    /// renderize animações mostrando o modelo "lendo", "pensando" (extraindo features),
+    /// "aplicando regras" e "decidindo" (Viterbi).
     ///
     /// # Fluxo de Eventos
     /// 1. `TokenizationDone`: Tokens gerados.
-    /// 2. `FeaturesComputed` (Loop): Features de cada token (se aplicável).
-    /// 3. `RuleApplied` (Loop): Regras que "bateram" (se modo híbrido).
-    /// 4. `ViterbiStep` (Loop): Passos do algoritmo de decodificação.
+    /// 2. `FeaturesComputed` (Loop): Features de cada token (se aplicável), mostrando o que o modelo "vê".
+    /// 3. `RuleApplied` (Loop): Regras que "bateram" (se modo híbrido), mostrando conhecimento explícito.
+    /// 4. `ViterbiStep` (Loop): Passos do algoritmo de decodificação, mostrando a incerteza probabilística.
     /// 5. `TagAssigned` (Loop): Decisão final para cada token.
-    /// 6. `Done`: Resultado final consolidado.
+    /// 6. `Done`: Resultado final consolidado com métricas de tempo.
     pub fn analyze_streaming(&self, text: &str, mode: AlgorithmMode, tokenizer_mode: TokenizerMode, tx: mpsc::Sender<PipelineEvent>) {
         let start = std::time::Instant::now();
 

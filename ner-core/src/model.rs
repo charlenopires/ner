@@ -31,12 +31,23 @@ use crate::tagger::{EntityCategory, Tag};
 /// - **Gazelleers**: As listas de entidades conhecidas.
 /// - **Outros Modelos**: HMM, MaxEnt, Perceptron, SpanModel (para experimentação).
 pub struct NerModel {
+    /// ## Exemplos
+    ///
+    /// Se o modelo for configurado com pesos manuais (como em `build()`), ele
+    /// usará o conhecimento embutido sobre língua portuguesa (sufixos, prefixos, listas)
+    /// para pontuar as tags candidatas.
     pub crf: CrfModel,
+    /// Modelo HMM (Hidden Markov Model)
     pub hmm: HmmModel,
+    /// Modelo de Maxima Entropia
     pub maxent: MaxEntModel,
+    /// Modelo Perceptron
     pub perceptron: PerceptronModel,
+    /// Modelo Span
     pub span: SpanModel,
+    /// Motor de regras para aplicação de dicionários e regex
     pub rule_engine: RuleEngine,
+    /// Cache interno de gazetteers para acesso rápido
     gazetteers_cache: Gazetteers,
 }
 
@@ -77,6 +88,12 @@ impl NerModel {
     }
 
     /// Retorna uma cópia dos gazetteers para uso no extrator de features.
+    ///
+    /// # Importância
+    ///
+    /// O extrator de features (`features.rs`) precisa saber quais palavras são
+    /// entidades conhecidas para gerar features binárias como `in_person_gazetteer`.
+    /// Este método provê acesso seguro a esses dados compartilhados.
     pub fn gazetteers(&self) -> Gazetteers {
         self.gazetteers_cache.clone()
     }
