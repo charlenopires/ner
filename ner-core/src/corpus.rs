@@ -430,6 +430,35 @@ pub fn get_corpus() -> Vec<AnnotatedSentence> {
                 ("e", "O"), ("é", "O"), ("vital", "O"), ("para", "O"), ("o", "O"), ("Nordeste", "B-LOC"), (".", "O"),
             ],
         },
+        // ===== DESAMBIGUAÇÃO =====
+        AnnotatedSentence {
+            text: "Paris Hilton viajou para Paris na França para participar de um desfile de moda.",
+            domain: "desambiguação",
+            annotations: &[
+                ("Paris", "B-PER"), ("Hilton", "I-PER"), ("viajou", "O"), ("para", "O"),
+                ("Paris", "B-LOC"), ("na", "O"), ("França", "B-LOC"), ("para", "O"),
+                ("participar", "O"), ("de", "O"), ("um", "O"), ("desfile", "O"), ("de", "O"), ("moda", "O"), (".", "O"),
+            ],
+        },
+        AnnotatedSentence {
+            text: "O Banco do Brasil emprestou dinheiro para seu João sentar no banco da praça.",
+            domain: "desambiguação",
+            annotations: &[
+                ("O", "O"), ("Banco", "B-ORG"), ("do", "I-ORG"), ("Brasil", "I-ORG"),
+                ("emprestou", "O"), ("dinheiro", "O"), ("para", "O"), ("seu", "O"),
+                ("João", "B-PER"), ("sentar", "O"), ("no", "O"), ("banco", "O"),
+                ("da", "O"), ("praça", "O"), (".", "O"),
+            ],
+        },
+        AnnotatedSentence {
+            text: "O Estado do Rio de Janeiro declarou estado de calamidade.",
+            domain: "desambiguação",
+            annotations: &[
+                ("O", "O"), ("Estado", "B-ORG"), ("do", "I-ORG"),
+                ("Rio", "I-ORG"), ("de", "I-ORG"), ("Janeiro", "I-ORG"), ("declarou", "O"),
+                ("estado", "O"), ("de", "O"), ("calamidade", "O"), (".", "O"),
+            ],
+        },
     ]
 }
 
@@ -562,6 +591,30 @@ pub fn demo_texts() -> Vec<(&'static str, &'static str)> {
         (
             "Cultura",
             "A Semana de Arte Moderna de 1922, realizada no Theatro Municipal de São Paulo, contou com a participação de Mário de Andrade, Oswald de Andrade e Tarsila do Amaral. O evento marcou o início do Modernismo no Brasil, rompendo com o conservadorismo acadêmico. Na música, Heitor Villa-Lobos e, posteriormente, Carmen Miranda, levaram a identidade cultural brasileira para os palcos internacionais, consolidando o samba e a bossa nova como gêneros de exportação.",
+        ),
+        (
+            "Desambiguação",
+            "A socialite Paris Hilton viajou para Paris, capital da França, na última semana. Durante a viagem, ela sentou em um banco próximo à Torre Eiffel após autorizar saques em sua conta no Banco do Brasil. O porta-voz do Estado do Rio de Janeiro confirmou que o estado de calamidade pública impede o envio de representantes.",
+        ),
+        (
+            "Tokenização",
+            "A Sra. Silva (nascida em 15/03/1980) comprou U$5.000,00 na bolsa de N.Y. às 14h30min usando seu e-mail ana.silva@exemplo.com.br! O site www.financas.com reportou que as ações da Apple Inc. subiram 2,5%. E aí, será que a Bovespa (IBOV) vai acompanhar essa alta-frequência de mercado?",
+        ),
+        (
+            "Esportes",
+            "Neymar Jr. marcou dois gols pelo Al-Hilal no estádio King Fahd em Riad, na Arábia Saudita. A Confederação Brasileira de Futebol (CBF) convocou Vinícius Jr., do Real Madrid, e Endrick, também do Real Madrid, para a Copa América. O técnico Dorival Júnior declarou que o Maracanã será palco do próximo amistoso contra a Argentina de Lionel Messi.",
+        ),
+        (
+            "Direito",
+            "O Supremo Tribunal Federal (STF), sob a presidência do Ministro Luís Roberto Barroso, julgou a constitucionalidade da Emenda Constitucional nº 45. O Procurador-Geral da República, Paulo Gonet, apresentou parecer ao Tribunal Superior Eleitoral (TSE) em Brasília. A Ordem dos Advogados do Brasil (OAB) emitiu nota conjunta com o Conselho Nacional de Justiça (CNJ) sobre a reforma do Código Penal.",
+        ),
+        (
+            "Economia",
+            "O Banco Central do Brasil, presidido por Gabriel Galípolo, manteve a taxa Selic em 13,75%. O Fundo Monetário Internacional (FMI) revisou a previsão de crescimento do PIB brasileiro. A Petrobras anunciou investimentos de R$ 100 bilhões em parceria com a Shell e a TotalEnergies para exploração de petróleo na Bacia de Santos, litoral de São Paulo.",
+        ),
+        (
+            "Ciência",
+            "Pesquisadores do Instituto Nacional de Pesquisas Espaciais (INPE), em São José dos Campos, detectaram aumento no desmatamento da Amazônia usando satélites do programa CBERS, desenvolvido em parceria com a Agência Espacial Chinesa. A bióloga Natália Pasternak, do Instituto Questão de Ciência, publicou estudo na revista Nature sobre a eficácia de vacinas produzidas pelo Instituto Butantan em colaboração com a Universidade de Oxford.",
         ),
     ]
 }

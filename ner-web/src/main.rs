@@ -10,6 +10,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use askama::Template;
 use ner_core::{
     corpus::demo_texts,
     pipeline::{AlgorithmMode, NerPipeline, PipelineEvent},
@@ -43,6 +44,19 @@ struct AnalyzeRequest {
     mode: Option<AlgorithmMode>,
     #[serde(default)]
     tokenizer_mode: Option<TokenizerMode>,
+}
+
+#[derive(Deserialize)]
+struct TokenizeRequest {
+    text: String,
+    #[serde(default)]
+    tokenizer_mode: Option<TokenizerMode>,
+}
+
+#[derive(Deserialize)]
+struct SotaRequest {
+    text: String,
+    classes: String, // vírgula separadas
 }
 
 /// Mensagem WebSocket recebida do cliente
@@ -88,6 +102,15 @@ async fn main() {
         .route("/analyze", post(analyze_handler))
         .route("/ws", get(ws_handler))
         .route("/demo-texts", get(demo_texts_handler))
+        .route("/tokenizer", get(tokenizer_page_handler))
+        .route("/ned", get(ned_page_handler))
+        .route("/nel", get(nel_page_handler))
+        .route("/sota", get(sota_page_handler))
+        .route("/gliner2", get(gliner2_page_handler))
+        .route("/htmx/tokenize", post(htmx_tokenize_handler))
+        .route("/htmx/ned", post(htmx_ned_handler))
+        .route("/htmx/nel", post(htmx_nel_handler))
+        .route("/htmx/sota", post(htmx_sota_handler))
         .nest_service("/docs", ServeDir::new(docs_dir))
         .layer(cors)
         .with_state(state);
@@ -97,9 +120,144 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
+#[derive(Template)]
+#[template(path = "ner.html")]
+struct NerTemplate {}
+
+#[derive(Template)]
+#[template(path = "tokenizer.html")]
+struct TokenizerTemplate {}
+
+#[derive(Template)]
+#[template(path = "ned.html")]
+struct NedTemplate {}
+
+#[derive(Template)]
+#[template(path = "nel.html")]
+struct NelTemplate {}
+
+#[derive(Template)]
+#[template(path = "sota.html")]
+struct SotaTemplate {}
+
+#[derive(Template)]
+#[template(path = "gliner2.html")]
+struct Gliner2Template {}
+
 /// Retorna a página principal HTML
 async fn index_handler() -> impl IntoResponse {
-    Html(include_str!("templates/index.html"))
+    Html(NerTemplate {}.render().unwrap())
+}
+
+async fn tokenizer_page_handler() -> impl IntoResponse {
+    Html(TokenizerTemplate {}.render().unwrap())
+}
+
+async fn ned_page_handler() -> impl IntoResponse {
+    Html(NedTemplate {}.render().unwrap())
+}
+
+async fn nel_page_handler() -> impl IntoResponse {
+    Html(NelTemplate {}.render().unwrap())
+}
+
+async fn sota_page_handler() -> impl IntoResponse {
+    Html(SotaTemplate {}.render().unwrap())
+}
+
+async fn gliner2_page_handler() -> impl IntoResponse {
+    Html(Gliner2Template {}.render().unwrap())
+}
+
+#[derive(Template)]
+#[template(path = "components/token_list.html")]
+struct TokenListTemplate {
+    tokens: Vec<ner_core::tokenizer::Token>,
+}
+
+use axum::Form;
+
+async fn htmx_tokenize_handler(
+    Form(req): Form<TokenizeRequest>,
+) -> impl IntoResponse {
+    let mode = req.tokenizer_mode.unwrap_or(TokenizerMode::Standard);
+    let tokens = ner_core::tokenizer::tokenize_with_mode(&req.text, mode);
+    Html(TokenListTemplate { tokens }.render().unwrap())
+}
+
+#[derive(Template)]
+#[template(path = "components/ned_results.html")]
+struct NedResultsTemplate {
+    results: Vec<ner_core::ned::DisambiguatedEntity>,
+}
+
+async fn htmx_ned_handler(
+    State(state): State<Arc<AppState>>,
+    Form(req): Form<TokenizeRequest>,
+) -> impl IntoResponse {
+    let mode = AlgorithmMode::Hybrid; // NED usaremos o melhor modelo por default
+    let tokenizer_mode = req.tokenizer_mode.unwrap_or(TokenizerMode::Standard);
+    
+    // 1. Roda a pipeline normal para extrair entidades e tokens
+    let (tagged_tokens, entities) = state.pipeline.analyze_with_mode(&req.text, mode, tokenizer_mode);
+    let tokens: Vec<_> = tagged_tokens.into_iter().map(|t| t.token).collect();
+    
+    // 2. Roda a desambiguação com base no contexto
+    let results = ner_core::ned::disambiguate(&tokens, &entities);
+    
+    Html(NedResultsTemplate { results }.render().unwrap())
+}
+
+#[derive(Template)]
+#[template(path = "components/nel_results.html")]
+struct NelResultsTemplate {
+    results: Vec<ner_core::nel::LinkedEntity>,
+}
+
+async fn htmx_nel_handler(
+    State(state): State<Arc<AppState>>,
+    Form(req): Form<TokenizeRequest>,
+) -> impl IntoResponse {
+    let mode = AlgorithmMode::Hybrid; // NEL usa o pipeline mais robusto
+    let tokenizer_mode = req.tokenizer_mode.unwrap_or(TokenizerMode::Standard);
+    
+    // 1. NER
+    let (tagged_tokens, entities) = state.pipeline.analyze_with_mode(&req.text, mode, tokenizer_mode);
+    let tokens: Vec<_> = tagged_tokens.into_iter().map(|t| t.token).collect();
+    
+    // 2. Desambiguação (NED)
+    let disambiguated = ner_core::ned::disambiguate(&tokens, &entities);
+    
+    // 3. Entity Linking em KB mokada
+    let kb = ner_core::nel::KnowledgeBase::new();
+    let results = kb.link(&disambiguated);
+    
+    Html(NelResultsTemplate { results }.render().unwrap())
+}
+
+#[derive(Template)]
+#[template(path = "components/sota_results.html")]
+struct SotaResultsTemplate {
+    results: Vec<ner_core::sota_2024::SotaPrediction>,
+}
+
+async fn htmx_sota_handler(
+    Form(req): Form<SotaRequest>,
+) -> impl IntoResponse {
+    let tokens = ner_core::tokenizer::tokenize_with_mode(&req.text, TokenizerMode::Standard);
+    
+    // Converte a string de classes (ex: "PER, LOC") para vetor ["PER", "LOC"]
+    let user_classes: Vec<String> = req.classes
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+        
+    // Chama a rede neural "simulada" q faz Span-based NER
+    // Threshold fixo em 0.5 para simulação
+    let results = ner_core::sota_2024::simulate_gliner(&tokens, &user_classes, 0.5, 4);
+
+    Html(SotaResultsTemplate { results }.render().unwrap())
 }
 
 /// Análise NER via HTTP POST (sem streaming)

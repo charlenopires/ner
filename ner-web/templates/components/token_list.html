@@ -1,0 +1,15 @@
+{% if tokens.is_empty() %}
+<p style="color: var(--text-secondary); font-size: 0.95rem;">Nenhum token gerado.</p>
+{% else %}
+<div style="margin-bottom: 1rem;">
+    <span style="font-size: 0.85rem; color: var(--text-secondary);">Total de tokens: {{ tokens.len() }}</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+    {% for token in tokens %}
+    <span
+        style="background: var(--surface-light); border: 1px solid var(--border); padding: 0.35rem 0.65rem; border-radius: 6px; font-family: var(--font-mono); font-size: 0.85rem; color: var(--text-primary);">
+        {{ token.text }}
+    </span>
+    {% endfor %}
+</div>
+{% endif %}

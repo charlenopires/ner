@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="main" style="grid-template-columns: 1fr;">
+
+    <!-- HERO -->
+    <div class="hero">
+        <h1>Entity Linking (NEL)</h1>
+        <p>
+            O último passo clássico em NLP: ligar a menção textual a uma <strong>identidade do mundo real</strong>.
+            "Lula" = "Luiz Inácio Lula da Silva" = <code
+                style="background:var(--bg-card-3); padding: 2px 6px; border-radius: 4px; font-size: 0.85em;">Q36098</code>.
+            Rodamos o pipeline completo: NER → NED → NEL para parear cada entidade com um ID na base de conhecimento
+            simulada.
+        </p>
+    </div>
+
+    <!-- Full pipeline diagram -->
+    <div class="card" style="margin-bottom: 1rem;">
+        <div class="card-header">
+            <span class="card-title">📊 Pipeline Completo NER → NED → NEL</span>
+        </div>
+        <div class="algo-diagram">
+            <div class="algo-step done"><span class="algo-emoji">📄</span>Texto</div>
+            <span class="algo-arrow">→</span>
+            <div class="algo-step done"><span class="algo-emoji">✂️</span>Tokenização</div>
+            <span class="algo-arrow">→</span>
+            <div class="algo-step done"><span class="algo-emoji">🎯</span>NER</div>
+            <span class="algo-arrow">→</span>
+            <div class="algo-step done"><span class="algo-emoji">🔍</span>NED</div>
+            <span class="algo-arrow">→</span>
+            <div class="algo-step active"><span class="algo-emoji">🔗</span>NEL</div>
+            <span class="algo-arrow">→</span>
+            <div class="algo-step"><span class="algo-emoji">🌐</span>KB Match</div>
+        </div>
+    </div>
+
+    <!-- Knowledge Base Info -->
+    <div class="card" style="margin-bottom: 1rem;">
+        <div class="card-header">
+            <span class="card-title">🗄️ Base de Conhecimento Simulada</span>
+            <span class="badge badge-ws" style="font-size: 0.7rem;">Wikidata-like</span>
+        </div>
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
+                <div
+                    style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center;">
+                    <div style="font-size: 1.3rem;">👤</div>
+                    <strong style="color: var(--per-color); font-size: 0.85rem;">Lula</strong>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">Q36098</div>
+                </div>
+                <div
+                    style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center;">
+                    <div style="font-size: 1.3rem;">📍</div>
+                    <strong style="color: var(--loc-color); font-size: 0.85rem;">Brasil</strong>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">Q155</div>
+                </div>
+                <div
+                    style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center;">
+                    <div style="font-size: 1.3rem;">🏢</div>
+                    <strong style="color: var(--org-color); font-size: 0.85rem;">Apple Inc.</strong>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">Q312</div>
+                </div>
+                <div
+                    style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center;">
+                    <div style="font-size: 1.3rem;">📍</div>
+                    <strong style="color: var(--loc-color); font-size: 0.85rem;">Paris</strong>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">Q90</div>
+                </div>
+                <div
+                    style="padding: 0.75rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border); text-align: center;">
+                    <div style="font-size: 1.3rem;">👤</div>
+                    <strong style="color: var(--per-color); font-size: 0.85rem;">Paris Hilton</strong>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem;">Q47899</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input card -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">📝 Texto de Entrada</span>
+        </div>
+        <div class="card-body">
+            <form hx-post="/htmx/nel" hx-target="#nel-results" hx-indicator="#nel-indicator"
+                style="display: flex; flex-direction: column; gap: 1rem;">
+
+                <div class="input-area">
+                    <textarea id="nel-text-input" name="text" rows="5"
+                        placeholder="Digite entidades presentes em nossa Base de Conhecimento (Lula, Brasil, Apple, Paris ou Paris Hilton)...">O ex-presidente Lula viajou para o Brasil ontem. Seu celular era da Apple Inc. enquanto conversava com a socialite Paris Hilton em Paris.</textarea>
+                </div>
+
+                <!-- Demo texts -->
+                <div class="demo-texts">
+                    <span style="font-size:0.75rem; color:var(--text-muted); align-self:center;">Exemplos:</span>
+                    <button type="button" class="demo-btn"
+                        onclick="setNelDemo('Lula discursou em Brasília sobre a economia do Brasil e os investimentos da Apple.')">Político</button>
+                    <button type="button" class="demo-btn"
+                        onclick="setNelDemo('Paris Hilton passeou por Paris usando seu iPhone da Apple Inc.')">Celebridade</button>
+                    <button type="button" class="demo-btn"
+                        onclick="setNelDemo('O Rio de Janeiro sediou evento sobre tecnologia e inteligência artificial avançada.')">NIL
+                        (OOV)</button>
+                </div>
+
+                <button type="submit" class="btn-analyze">
+                    <span>🔗</span>
+                    <span>Executar Entity Linking</span>
+                </button>
+            </form>
+
+            <!-- Result display -->
+            <div style="margin-top: 1.5rem; position: relative;">
+                <div class="card-title" style="margin-bottom:0.75rem;">
+                    🌐 Resultado do Grounding (KB)
+                </div>
+
+                <div id="nel-indicator" class="htmx-indicator" style="position: absolute; top: 0; right: 0;">
+                    <div class="spinner"></div>
+                </div>
+
+                <div id="nel-results"
+                    style="background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem; min-height: 100px;">
+                    <p class="placeholder-text">Clique em "Executar Entity Linking" para realizar o Grounding na base de
+                        conhecimento (KB).</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-dot" style="background:var(--accent-green)"></div>
+                <span>🔗 Grounded (Match na KB)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:var(--text-muted)"></div>
+                <span>❓ NIL / OOV (Fora da KB)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:var(--per-color)"></div>
+                <span>👤 Pessoa</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:var(--loc-color)"></div>
+                <span>📍 Local</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:var(--org-color)"></div>
+                <span>🏢 Organização</span>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<style>
+    .htmx-indicator {
+        display: none;
+    }
+
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator {
+        display: block;
+    }
+</style>
+
+<script>
+    function setNelDemo(text) {
+        document.getElementById('nel-text-input').value = text;
+    }
+</script>
+{% endblock %}

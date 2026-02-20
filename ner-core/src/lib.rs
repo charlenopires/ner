@@ -62,6 +62,9 @@ pub mod maxent;
 pub mod perceptron;
 pub mod span;
 pub mod viterbi;
+pub mod ned;
+pub mod nel;
+pub mod sota_2024;
 
 pub use pipeline::{AlgorithmMode, NerPipeline, PipelineEvent};
 pub use tagger::{EntitySpan, Tag, TaggedToken};

@@ -98,10 +98,12 @@ impl Default for Gazetteers {
     }
 }
 
+use rayon::prelude::*;
+
 /// Gera vetores de features para toda a sequência de tokens.
 ///
-/// Esta função orquestra a chamada de `extract_for_token` para cada posição,
-/// garantindo que o contexto (janela deslizante) seja respeitado.
+/// Trabalha em paralelo usando `rayon` para extrair features de múltiplos tokens
+/// simultaneamente, maximizando o uso de cores disponíveis (M3 Pro).
 ///
 /// # Parâmetros
 /// - `tokens`: A lista completa de tokens da sentença.
@@ -119,8 +121,10 @@ impl Default for Gazetteers {
 /// - `next_word=venceu`
 /// - `in_location_gazetteer` (se estiver no gazetteer)
 pub fn extract_features(tokens: &[Token], gazetteers: &Gazetteers) -> Vec<FeatureVector> {
+    // Usando rayon (par_iter + enumerate + map + collect) para acelerar a extração 
+    // em CPU multi-core mantendo a ordem dos tokens inalterada.
     tokens
-        .iter()
+        .par_iter()
         .enumerate()
         .map(|(i, _)| extract_for_token(tokens, i, gazetteers))
         .collect()

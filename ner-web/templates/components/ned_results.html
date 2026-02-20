@@ -1,0 +1,33 @@
+{% if results.is_empty() %}
+<p style="color: var(--text-secondary); font-size: 0.95rem;">Nenhuma entidade encontrada para desambiguar.</p>
+{% else %}
+<div style="display: flex; flex-direction: column; gap: 1rem;">
+    {% for res in results %}
+    <div style="background: var(--surface-light); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h4 style="margin: 0; color: var(--text-primary); font-size: 1.1rem;">"{{ res.entity.text }}"</h4>
+            <div>
+                <span style="font-size: 0.8rem; color: var(--text-secondary); margin-right: 0.5rem;">Original: <span
+                        class="badge badge-crf" style="padding: 0.2rem 0.5rem;">{{ res.original_tag }}</span></span>
+                <span style="font-size: 0.8rem; font-weight: bold; color: var(--text-primary);">Resolvido: <span
+                        class="badge badge-rust" style="padding: 0.2rem 0.5rem;">{{ res.resolved_tag }}</span></span>
+            </div>
+        </div>
+        <div style="margin-bottom: 0.5rem;">
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">Confiança: <strong
+                    style="color: var(--accent-green);">{{ "{:.0}"|format(res.confidence * 100.0) }}%</strong></span>
+        </div>
+        <div>
+            <span
+                style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 0.25rem;">Pistas
+                de Contexto:</span>
+            <ul style="margin: 0; padding-left: 1.5rem; color: var(--text-primary); font-size: 0.85rem;">
+                {% for clue in res.context_clues %}
+                <li>{{ clue }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

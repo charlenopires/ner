@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="main" style="grid-template-columns: 1fr;">
+
+    <!-- HERO -->
+    <div class="hero">
+        <h1>Tokenização Educacional</h1>
+        <p>
+            Explore como o mesmo texto é dividido de formas diferentes por cada estratégia de tokenização.
+            A escolha do tokenizador afeta diretamente os vetores de features e, consequentemente, o que o modelo
+            consegue aprender.
+        </p>
+    </div>
+
+    <!-- Pipeline diagram -->
+    <div class="card" style="margin-bottom: 1rem;">
+        <div class="card-header">
+            <span class="card-title">📊 Pipeline de Tokenização</span>
+        </div>
+        <div class="algo-diagram">
+            <div class="algo-step done"><span class="algo-emoji">📄</span>Texto Bruto</div>
+            <span class="algo-arrow">→</span>
+            <div class="algo-step active"><span class="algo-emoji">✂️</span>Tokenizador</div>
+            <span class="algo-arrow">→</span>
+            <div class="algo-step"><span class="algo-emoji">🔤</span>Tokens</div>
+            <span class="algo-arrow">→</span>
+            <div class="algo-step"><span class="algo-emoji">📐</span>Offsets</div>
+            <span class="algo-arrow">→</span>
+            <div class="algo-step"><span class="algo-emoji">🔬</span>Features</div>
+        </div>
+    </div>
+
+    <!-- Input card -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">📝 Texto de Entrada</span>
+        </div>
+        <div class="card-body">
+            <form hx-post="/htmx/tokenize" hx-target="#token-results" hx-indicator="#token-indicator"
+                style="display: flex; flex-direction: column; gap: 1rem;">
+
+                <!-- Tokenizer Mode Selector -->
+                <div class="algo-mode-panel">
+                    <span class="algo-mode-label">🔠 Estratégia:</span>
+                    <div class="algo-mode-toggle" id="tok-mode-toggle">
+                        <button type="button" class="mode-btn active" data-mode="standard"
+                            onclick="selectTokMode(this, 'standard')">
+                            Standard
+                        </button>
+                        <button type="button" class="mode-btn" data-mode="aggressive"
+                            onclick="selectTokMode(this, 'aggressive')">
+                            Aggressive
+                        </button>
+                        <button type="button" class="mode-btn" data-mode="conservative"
+                            onclick="selectTokMode(this, 'conservative')">
+                            Conservative
+                        </button>
+                        <button type="button" class="mode-btn" data-mode="bpe_lite"
+                            onclick="selectTokMode(this, 'bpe_lite')">
+                            BPE Lite
+                        </button>
+                        <button type="button" class="mode-btn" data-mode="char_level"
+                            onclick="selectTokMode(this, 'char_level')">
+                            Char
+                        </button>
+                    </div>
+                    <span class="mode-desc" id="tok-mode-desc">Palavras/Pontuação com tratamento de abreviações</span>
+                </div>
+                <input type="hidden" name="tokenizer_mode" id="tokenizer_mode_input" value="standard">
+
+                <div class="input-area">
+                    <textarea id="tok-text-input" name="text" rows="5"
+                        placeholder="Digite algo complexo com abreviações, números, locuções ou clíticos...">A Sra. Silva (nascida em 15/03/1980) comprou U$5.000,00 na bolsa de N.Y. às 14h30min usando seu e-mail ana.silva@exemplo.com.br! O site www.financas.com reportou que as ações da Apple subiram 2,5%.</textarea>
+                </div>
+
+                <!-- Demo texts -->
+                <div class="demo-texts">
+                    <span style="font-size:0.75rem; color:var(--text-muted); align-self:center;">Exemplos:</span>
+                    <button type="button" class="demo-btn"
+                        onclick="setTokDemo('O Dr. João F. da Silva Jr. viajou para São Paulo às 14h30.')">Abreviações</button>
+                    <button type="button" class="demo-btn"
+                        onclick="setTokDemo('Dê-me isso! Levá-lo-ei ao ponto de ônibus.')">Clíticos</button>
+                    <button type="button" class="demo-btn"
+                        onclick="setTokDemo('O Supremo Tribunal Federal votou 8x3 contra a P.E.C. 45/2019.')">Siglas</button>
+                    <button type="button" class="demo-btn"
+                        onclick="setTokDemo('user@email.com visitou http://www.site.com.br/pagina?id=42&lang=pt-BR')">URLs/Emails</button>
+                </div>
+
+                <button type="submit" class="btn-analyze">
+                    <span>✂️</span>
+                    <span>Extrair Tokens</span>
+                </button>
+            </form>
+
+            <!-- Result display -->
+            <div style="margin-top: 1.5rem; position: relative;">
+                <div class="card-title" style="margin-bottom:0.75rem;">
+                    🔤 Resultado da Tokenização
+                </div>
+
+                <!-- Loading indicator -->
+                <div id="token-indicator" class="htmx-indicator" style="position: absolute; top: 0; right: 0;">
+                    <div class="spinner"></div>
+                </div>
+
+                <div id="token-results"
+                    style="background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1.25rem; min-height: 100px;">
+                    <p class="placeholder-text">Clique em "Extrair Tokens" para visualizar o resultado.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-dot" style="background:var(--accent-cyan)"></div>
+                <span>✂️ Standard</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:var(--accent-purple)"></div>
+                <span>⚡ Aggressive</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:var(--accent-green)"></div>
+                <span>🛡️ Conservative</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:var(--accent-blue)"></div>
+                <span>🧩 BPE Lite</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background:var(--loc-color)"></div>
+                <span>🔡 Char Level</span>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<style>
+    .htmx-indicator {
+        display: none;
+    }
+
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator {
+        display: block;
+    }
+</style>
+
+<script>
+    const TOK_DESCRIPTIONS = {
+        standard: 'Palavras/Pontuação com tratamento de abreviações',
+        aggressive: 'Separação agressiva de clíticos e sufixos',
+        conservative: 'Preserva locuções e nomes compostos',
+        bpe_lite: 'Simulação de sub-word tokenization (BPE)',
+        char_level: 'Tokenização caractere a caractere',
+    };
+
+    function selectTokMode(btn, mode) {
+        document.querySelectorAll('#tok-mode-toggle .mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tokenizer_mode_input').value = mode;
+        const desc = document.getElementById('tok-mode-desc');
+        if (desc) desc.textContent = TOK_DESCRIPTIONS[mode] || '';
+    }
+
+    function setTokDemo(text) {
+        document.getElementById('tok-text-input').value = text;
+    }
+</script>
+{% endblock %}

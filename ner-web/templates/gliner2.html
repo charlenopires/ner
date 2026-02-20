@@ -1,0 +1,633 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="main" style="grid-template-columns: 1fr;">
+
+    <!-- HERO -->
+    <div class="hero">
+        <h1
+            style="background: linear-gradient(135deg, #e8e8f0 0%, #22d3ee 40%, #3b82f6 70%, #9333ea 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
+            GLiNER2 — Entendendo o SOTA em NER
+        </h1>
+        <p>
+            Uma aula interativa sobre como o <strong>GLiNER2</strong> revolucionou o NER.
+            Aprenda cada etapa da arquitetura — do <em>input encoding</em> ao <em>span matching</em> —
+            e veja visualmente como o modelo decide quais trechos de texto correspondem a quais entidades.
+        </p>
+    </div>
+
+    <!-- ============================================================
+       SEÇÃO 1: O Problema
+  ============================================================ -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+            <span class="card-title">🎯 Seção 1 — O Problema do NER Tradicional</span>
+            <span class="badge badge-rust" style="font-size: 0.7rem;">Motivação</span>
+        </div>
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+
+                <!-- Problema -->
+                <div
+                    style="padding: 1.25rem; background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: var(--radius-sm);">
+                    <h3
+                        style="color: var(--loc-color); font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                        ❌ Abordagem Tradicional (CRF / HMM / LSTM-CRF)
+                    </h3>
+                    <ul
+                        style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.9; padding-left: 1.2rem;">
+                        <li>Tags <strong>fixas no treino</strong>: PER, LOC, ORG, MISC</li>
+                        <li>Adicionar uma classe nova = <strong>re-treinar tudo</strong></li>
+                        <li>Classificação <strong>sequencial</strong> (token-a-token)</li>
+                        <li>Precisa de <strong>dataset anotado</strong> para cada domínio</li>
+                        <li>Esquema BIO/BIOES → propenso a erros de transição</li>
+                    </ul>
+                </div>
+
+                <!-- Solução -->
+                <div
+                    style="padding: 1.25rem; background: rgba(147, 51, 234, 0.05); border: 1px solid rgba(147, 51, 234, 0.2); border-radius: var(--radius-sm);">
+                    <h3
+                        style="color: #a78bfa; font-size: 1rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                        ✅ Abordagem GLiNER2 (Span-Based + Zero-Shot)
+                    </h3>
+                    <ul
+                        style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.9; padding-left: 1.2rem;">
+                        <li>Classes via <strong>prompt em texto natural</strong></li>
+                        <li>Adicionar uma classe nova = <strong>digitar o nome dela</strong></li>
+                        <li>Classificação <strong>paralela</strong> (todos os spans de uma vez)</li>
+                        <li><strong>Zero-shot</strong>: sem re-treinamento</li>
+                        <li>Matching vetorial direto → sem esquema BIO</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+       SEÇÃO 2: Arquitetura
+  ============================================================ -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+            <span class="card-title">🧬 Seção 2 — Arquitetura do GLiNER2</span>
+            <span class="badge badge-crf"
+                style="background: rgba(34, 211, 238, 0.15); color: var(--accent-cyan); border-color: rgba(34, 211, 238, 0.3); font-size: 0.7rem;">Encoder-Based</span>
+        </div>
+        <div class="card-body">
+
+            <!-- Architecture pipeline -->
+            <div class="algo-diagram"
+                style="margin-bottom: 1.5rem; padding: 1rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                <div class="algo-step"
+                    style="min-width: 90px; border-color: rgba(34, 211, 238, 0.4); color: var(--accent-cyan); background: rgba(34, 211, 238, 0.06);">
+                    <span class="algo-emoji">📄</span>Input
+                </div>
+                <span class="algo-arrow">→</span>
+                <div class="algo-step"
+                    style="min-width: 90px; border-color: rgba(59, 130, 246, 0.4); color: var(--accent-blue); background: rgba(59, 130, 246, 0.06);">
+                    <span class="algo-emoji">🧠</span>BiLM (DeBERTa)
+                </div>
+                <span class="algo-arrow">→</span>
+                <div class="algo-step"
+                    style="min-width: 90px; border-color: rgba(147, 51, 234, 0.4); color: #a78bfa; background: rgba(147, 51, 234, 0.06);">
+                    <span class="algo-emoji">📏</span>Span Repr.
+                </div>
+                <span class="algo-arrow">→</span>
+                <div class="algo-step"
+                    style="min-width: 90px; border-color: rgba(52, 211, 153, 0.4); color: var(--accent-green); background: rgba(52, 211, 153, 0.06);">
+                    <span class="algo-emoji">🧮</span>Dot Product
+                </div>
+                <span class="algo-arrow">→</span>
+                <div class="algo-step"
+                    style="min-width: 90px; border-color: rgba(245, 158, 11, 0.4); color: var(--loc-color); background: rgba(245, 158, 11, 0.06);">
+                    <span class="algo-emoji">📊</span>Sigmoid
+                </div>
+                <span class="algo-arrow">→</span>
+                <div class="algo-step"
+                    style="min-width: 90px; border-color: rgba(52, 211, 153, 0.4); color: var(--accent-green); background: rgba(52, 211, 153, 0.06);">
+                    <span class="algo-emoji">✅</span>Entidades
+                </div>
+            </div>
+
+            <!-- Component cards -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+                <div
+                    style="padding: 1.25rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border-left: 4px solid var(--accent-cyan);">
+                    <h4 style="color: var(--accent-cyan); font-size: 0.9rem; margin-bottom: 0.5rem;">1. Input Encoding
+                    </h4>
+                    <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.7;">
+                        O GLiNER2 concatena as classes desejadas e o texto numa sequência única:<br>
+                        <code
+                            style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-size: 0.8em; color: var(--accent-cyan);">
+              [ENT] Pessoa [ENT] Local [SEP] Santos Dumont voou...
+            </code><br>
+                        Tudo é processado por um <strong>DeBERTa</strong> encoder (BiLM) que gera embeddings
+                        contextualizados.
+                    </p>
+                </div>
+                <div
+                    style="padding: 1.25rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border-left: 4px solid #a78bfa;">
+                    <h4 style="color: #a78bfa; font-size: 0.9rem; margin-bottom: 0.5rem;">2. Span Representation</h4>
+                    <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.7;">
+                        Em vez de classificar token por token, o modelo enumera <strong>todos os spans
+                            possíveis</strong>
+                        até um comprimento máximo. Por exemplo: "Santos", "Santos Dumont", "Dumont", "voou", etc.
+                        Cada span recebe um embedding via FeedForward Network.
+                    </p>
+                </div>
+                <div
+                    style="padding: 1.25rem; background: var(--bg-card-3); border-radius: var(--radius-sm); border-left: 4px solid var(--accent-green);">
+                    <h4 style="color: var(--accent-green); font-size: 0.9rem; margin-bottom: 0.5rem;">3. Matching (Dot
+                        Product + Sigmoid)</h4>
+                    <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.7;">
+                        O embedding de cada span é comparado contra o embedding de cada classe via <strong>dot
+                            product</strong>.
+                        O resultado passa por <strong>sigmoid</strong> para gerar uma probabilidade entre 0 e 1.
+                        Se a probabilidade supera o threshold → entidade detectada!
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+       SEÇÃO 3: Simulação Interativa do Encoding
+  ============================================================ -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+            <span class="card-title">🔬 Seção 3 — Simulador de Input Encoding</span>
+            <span class="badge badge-ws">Interativo</span>
+        </div>
+        <div class="card-body">
+            <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1rem;">
+                Digite classes e texto abaixo. Veja em <strong>tempo real</strong> como o GLiNER2 formata a sequência de
+                entrada
+                para o encoder Transformer.
+            </p>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label
+                        style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; display: block; margin-bottom: 0.4rem;">🎯
+                        Classes (uma por linha):</label>
+                    <textarea id="g2-classes" rows="3"
+                        style="width: 100%; background: var(--bg-card-3); border: 1px solid var(--border-bright); color: var(--text-primary); padding: 0.75rem; border-radius: var(--radius-sm); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; resize: vertical; outline: none;"
+                        oninput="updateEncoding()">Pessoa
+Local
+Organização</textarea>
+                </div>
+                <div>
+                    <label
+                        style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; display: block; margin-bottom: 0.4rem;">📄
+                        Texto:</label>
+                    <textarea id="g2-text" rows="3"
+                        style="width: 100%; background: var(--bg-card-3); border: 1px solid var(--border-bright); color: var(--text-primary); padding: 0.75rem; border-radius: var(--radius-sm); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; resize: vertical; outline: none;"
+                        oninput="updateEncoding()">Santos Dumont voou sobre Paris</textarea>
+                </div>
+            </div>
+
+            <!-- Demo buttons -->
+            <div class="demo-texts" style="margin-bottom: 1rem;">
+                <span style="font-size:0.75rem; color:var(--text-muted); align-self:center;">Exemplos:</span>
+                <button type="button" class="demo-btn"
+                    onclick="setG2Demo('Pessoa\nLocal\nOrganização', 'Santos Dumont voou sobre Paris representando o Aeroclube')">Histórico</button>
+                <button type="button" class="demo-btn"
+                    onclick="setG2Demo('Empresa\nProduto\nData', 'A Apple lançou o iPhone 16 em setembro de 2024')">Tecnologia</button>
+                <button type="button" class="demo-btn"
+                    onclick="setG2Demo('Atleta\nTime\nEstádio', 'Neymar fez gol pelo Al-Hilal no estádio King Fahd')">Esportes</button>
+                <button type="button" class="demo-btn"
+                    onclick="setG2Demo('Doença\nMedicamento\nÓrgão', 'O Ministério da Saúde aprovou a vacina contra COVID-19')">Saúde</button>
+                <button type="button" class="demo-btn"
+                    onclick="setG2Demo('Artista\nObra\nMuseu', 'Da Vinci pintou a Mona Lisa que está no Louvre em Paris')">Arte</button>
+            </div>
+
+            <!-- Encoded output -->
+            <div style="background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; line-height: 2; word-break: break-all;"
+                id="g2-encoded">
+                <!-- Filled by JS -->
+            </div>
+
+            <!-- Stats -->
+            <div id="g2-stats"
+                style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-top: 1rem;">
+                <div class="stat-cell">
+                    <div class="stat-value" id="g2-stat-classes">3</div>
+                    <div class="stat-label">Classes</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="stat-value" id="g2-stat-tokens">5</div>
+                    <div class="stat-label">Tokens</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="stat-value" id="g2-stat-spans">—</div>
+                    <div class="stat-label">Spans Candidatos</div>
+                </div>
+                <div class="stat-cell">
+                    <div class="stat-value" id="g2-stat-comparisons">—</div>
+                    <div class="stat-label">Comparações</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+       SEÇÃO 4: Visualização de Spans
+  ============================================================ -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+            <span class="card-title">📏 Seção 4 — Enumeração de Spans</span>
+            <span class="badge badge-crf"
+                style="background: rgba(147, 51, 234, 0.15); color: #a78bfa; border-color: rgba(147, 51, 234, 0.3); font-size: 0.7rem;">Span-Based</span>
+        </div>
+        <div class="card-body">
+            <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1rem;">
+                O GLiNER2 não classifica token por token. Ele gera <strong>todos os spans candidatos</strong> até o
+                tamanho máximo
+                (geralmente 4-8 tokens). Clique "Gerar Spans" para ver a explosão combinatória.
+            </p>
+
+            <button type="button" class="btn-analyze"
+                style="background: linear-gradient(135deg, #9333ea, #3b82f6); margin-bottom: 1rem;"
+                onclick="generateSpans()">
+                <span>📏</span>
+                <span>Gerar Spans do Texto</span>
+            </button>
+
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                <label style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">Max Span
+                    Length:</label>
+                <input type="range" id="g2-max-span" min="1" max="6" value="4" style="flex: 1;"
+                    oninput="document.getElementById('g2-max-span-val').textContent = this.value">
+                <span id="g2-max-span-val"
+                    style="font-family: 'JetBrains Mono', monospace; color: var(--accent-blue); font-weight: 700; font-size: 1.1rem;">4</span>
+            </div>
+
+            <div id="g2-spans-grid"
+                style="display: flex; flex-wrap: wrap; gap: 0.5rem; min-height: 60px; padding: 1rem; background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                <p class="placeholder-text" style="width: 100%;">Clique no botão acima para visualizar os spans
+                    candidatos.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+       SEÇÃO 5: Simulação do Dot Product
+  ============================================================ -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+            <span class="card-title">🧮 Seção 5 — Dot Product & Matching</span>
+            <span class="badge badge-ws">Simulação</span>
+        </div>
+        <div class="card-body">
+            <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 1rem;">
+                Cada span é comparado contra cada classe via <strong>dot product</strong> seguido de
+                <strong>sigmoid</strong>.
+                O resultado é uma matriz N×M de probabilidades. Spans com score acima do threshold são entidades.
+            </p>
+
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                <label style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap;">Threshold:</label>
+                <input type="range" id="g2-threshold" min="0" max="100" value="50" style="flex: 1;"
+                    oninput="document.getElementById('g2-threshold-val').textContent = (this.value / 100).toFixed(2); simulateMatching();">
+                <span id="g2-threshold-val"
+                    style="font-family: 'JetBrains Mono', monospace; color: var(--accent-green); font-weight: 700; font-size: 1.1rem;">0.50</span>
+            </div>
+
+            <button type="button" class="btn-analyze"
+                style="background: linear-gradient(135deg, #22d3ee, #3b82f6); margin-bottom: 1rem;"
+                onclick="simulateMatching()">
+                <span>🧮</span>
+                <span>Simular Dot Product</span>
+            </button>
+
+            <div id="g2-matching-table"
+                style="overflow-x: auto; padding: 0.5rem; background: var(--bg-card-3); border: 1px solid var(--border); border-radius: var(--radius-sm); min-height: 60px;">
+                <p class="placeholder-text">Gere os spans primeiro (Seção 4) e depois simule o matching.</p>
+            </div>
+
+            <!-- Detected entities -->
+            <div style="margin-top: 1rem;">
+                <div class="card-title" style="margin-bottom: 0.5rem; font-size: 0.8rem;">✅ Entidades Detectadas:</div>
+                <div id="g2-detected" style="display: flex; flex-wrap: wrap; gap: 0.5rem; min-height: 32px;">
+                    <span style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">Nenhuma entidade
+                        detectada ainda.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+       SEÇÃO 6: GLiNER2 vs GLiNER1
+  ============================================================ -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+            <span class="card-title">📊 Seção 6 — GLiNER2: O Que Mudou?</span>
+        </div>
+        <div class="card-body">
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+                    <thead>
+                        <tr style="background: var(--bg-card-3);">
+                            <th
+                                style="padding: 0.75rem; text-align: left; border-bottom: 2px solid var(--border); color: var(--text-secondary);">
+                                Aspecto</th>
+                            <th
+                                style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--border); color: var(--loc-color);">
+                                GLiNER (v1)</th>
+                            <th
+                                style="padding: 0.75rem; text-align: center; border-bottom: 2px solid var(--border); color: #a78bfa;">
+                                GLiNER2 (v2)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td
+                                style="padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text-primary);">
+                                Tarefas</td>
+                            <td
+                                style="padding: 0.6rem; text-align: center; border-bottom: 1px solid var(--border); color: var(--text-secondary);">
+                                Apenas NER</td>
+                            <td
+                                style="padding: 0.6rem; text-align: center; border-bottom: 1px solid var(--border); color: var(--accent-green);">
+                                NER + Text Classification + Structured Extraction</td>
+                        </tr>
+                        <tr>
+                            <td
+                                style="padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text-primary);">
+                                Interface</td>
+                            <td
+                                style="padding: 0.6rem; text-align: center; border-bottom: 1px solid var(--border); color: var(--text-secondary);">
+                                Lista de labels</td>
+                            <td
+                                style="padding: 0.6rem; text-align: center; border-bottom: 1px solid var(--border); color: var(--accent-green);">
+                                Schema-Driven (JSON-like)</td>
+                        </tr>
+                        <tr>
+                            <td
+                                style="padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text-primary);">
+                                Encoder</td>
+                            <td
+                                style="padding: 0.6rem; text-align: center; border-bottom: 1px solid var(--border); color: var(--text-secondary);">
+                                BERT / DeBERTa</td>
+                            <td
+                                style="padding: 0.6rem; text-align: center; border-bottom: 1px solid var(--border); color: var(--accent-green);">
+                                Fine-tuned DeBERTa (~205M params)</td>
+                        </tr>
+                        <tr>
+                            <td
+                                style="padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text-primary);">
+                                GPU Necessária?</td>
+                            <td
+                                style="padding: 0.6rem; text-align: center; border-bottom: 1px solid var(--border); color: var(--text-secondary);">
+                                Recomendada</td>
+                            <td
+                                style="padding: 0.6rem; text-align: center; border-bottom: 1px solid var(--border); color: var(--accent-green);">
+                                Não — roda em CPU</td>
+                        </tr>
+                        <tr>
+                            <td
+                                style="padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text-primary);">
+                                Hierarquia</td>
+                            <td
+                                style="padding: 0.6rem; text-align: center; border-bottom: 1px solid var(--border); color: var(--text-secondary);">
+                                Flat NER</td>
+                            <td
+                                style="padding: 0.6rem; text-align: center; border-bottom: 1px solid var(--border); color: var(--accent-green);">
+                                Flat + Nested + Hierarchical</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 0.6rem 0.75rem; color: var(--text-primary);">vs. GPT-4o</td>
+                            <td style="padding: 0.6rem; text-align: center; color: var(--text-secondary);">—</td>
+                            <td style="padding: 0.6rem; text-align: center; color: var(--accent-green);">Competitivo em
+                                F1, mais rápido e barato</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+       SEÇÃO 7: Referências
+  ============================================================ -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">📚 Referências</span>
+        </div>
+        <div class="card-body" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.8;">
+            <ul style="padding-left: 1.2rem;">
+                <li><strong>Paper GLiNER</strong>: <em>"GLiNER: Generalist Model for Named Entity Recognition using
+                        Bidirectional Transformer"</em> — Urchade Zaratiana et al., 2023 (NAACL 2024)</li>
+                <li><strong>Paper GLiNER2</strong>: <em>"GLiNER2: An Efficient Multi-Task Information Extraction System
+                        with Schema-Driven Interface"</em> — arXiv, July 2025 (EMNLP 2025)</li>
+                <li><strong>GitHub</strong>: <a href="https://github.com/urchade/GLiNER" target="_blank"
+                        style="color: var(--accent-blue); text-decoration: none;">github.com/urchade/GLiNER</a></li>
+                <li><strong>HuggingFace</strong>: <a
+                        href="https://huggingface.co/collections/knowledgator/gliner2-models" target="_blank"
+                        style="color: var(--accent-blue); text-decoration: none;">knowledgator/gliner2-models</a></li>
+                <li><strong>Encoder</strong>: Microsoft DeBERTa-v3 (~205M parâmetros)</li>
+            </ul>
+        </div>
+    </div>
+
+</main>
+
+<script>
+    // ---------------------------------------------------------------
+    // Encoding Simulator
+    // ---------------------------------------------------------------
+    function updateEncoding() {
+        const classesRaw = document.getElementById('g2-classes').value;
+        const text = document.getElementById('g2-text').value;
+        const classes = classesRaw.split('\n').map(c => c.trim()).filter(c => c.length > 0);
+        const tokens = text.split(/\s+/).filter(t => t.length > 0);
+
+        // Build encoded sequence
+        let html = '';
+        html += '<span style="background: rgba(34, 211, 238, 0.2); color: var(--accent-cyan); padding: 2px 6px; border-radius: 4px; margin: 2px;">[CLS]</span> ';
+        for (const cls of classes) {
+            html += '<span style="background: rgba(147, 51, 234, 0.2); color: #a78bfa; padding: 2px 6px; border-radius: 4px; margin: 2px;">[ENT]</span> ';
+            html += `<span style="background: rgba(147, 51, 234, 0.1); color: #c4b5fd; padding: 2px 6px; border-radius: 4px; margin: 2px;">${escapeHtml(cls)}</span> `;
+        }
+        html += '<span style="background: rgba(245, 158, 11, 0.2); color: var(--loc-color); padding: 2px 6px; border-radius: 4px; margin: 2px;">[SEP]</span> ';
+        for (const tok of tokens) {
+            html += `<span style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); padding: 2px 6px; border-radius: 4px; margin: 2px;">${escapeHtml(tok)}</span> `;
+        }
+        html += '<span style="background: rgba(34, 211, 238, 0.2); color: var(--accent-cyan); padding: 2px 6px; border-radius: 4px; margin: 2px;">[SEP]</span>';
+
+        document.getElementById('g2-encoded').innerHTML = html;
+
+        // Stats
+        const maxSpan = parseInt(document.getElementById('g2-max-span').value);
+        let spanCount = 0;
+        for (let len = 1; len <= Math.min(maxSpan, tokens.length); len++) {
+            spanCount += tokens.length - len + 1;
+        }
+        document.getElementById('g2-stat-classes').textContent = classes.length;
+        document.getElementById('g2-stat-tokens').textContent = tokens.length;
+        document.getElementById('g2-stat-spans').textContent = spanCount;
+        document.getElementById('g2-stat-comparisons').textContent = spanCount * classes.length;
+    }
+
+    function setG2Demo(classes, text) {
+        document.getElementById('g2-classes').value = classes;
+        document.getElementById('g2-text').value = text;
+        updateEncoding();
+    }
+
+    // ---------------------------------------------------------------
+    // Span Generation
+    // ---------------------------------------------------------------
+    let generatedSpans = [];
+
+    function generateSpans() {
+        const text = document.getElementById('g2-text').value;
+        const tokens = text.split(/\s+/).filter(t => t.length > 0);
+        const maxLen = parseInt(document.getElementById('g2-max-span').value);
+        const container = document.getElementById('g2-spans-grid');
+
+        generatedSpans = [];
+        const colors = ['rgba(59,130,246,0.15)', 'rgba(147,51,234,0.15)', 'rgba(34,211,238,0.15)', 'rgba(52,211,153,0.15)', 'rgba(245,158,11,0.15)', 'rgba(239,68,68,0.15)'];
+        const borders = ['rgba(59,130,246,0.4)', 'rgba(147,51,234,0.4)', 'rgba(34,211,238,0.4)', 'rgba(52,211,153,0.4)', 'rgba(245,158,11,0.4)', 'rgba(239,68,68,0.4)'];
+        const textColors = ['#60a5fa', '#a78bfa', '#22d3ee', '#34d399', '#fbbf24', '#f87171'];
+
+        let html = '';
+        for (let len = 1; len <= Math.min(maxLen, tokens.length); len++) {
+            const colorIdx = (len - 1) % colors.length;
+            for (let start = 0; start <= tokens.length - len; start++) {
+                const spanTokens = tokens.slice(start, start + len);
+                const spanText = spanTokens.join(' ');
+                generatedSpans.push({ text: spanText, start, end: start + len - 1, length: len });
+                html += `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 16px; font-size: 0.78rem; font-weight: 500; background: ${colors[colorIdx]}; border: 1px solid ${borders[colorIdx]}; color: ${textColors[colorIdx]}; animation: chip-in 0.2s ease; cursor: default;" title="Span length: ${len}, start: ${start}">
+          <span style="font-size: 0.65rem; opacity: 0.6;">L${len}</span> ${escapeHtml(spanText)}
+        </span>`;
+            }
+        }
+
+        container.innerHTML = html || '<p class="placeholder-text">Nenhum span gerado.</p>';
+        updateEncoding();
+    }
+
+    // ---------------------------------------------------------------
+    // Matching Simulation
+    // ---------------------------------------------------------------
+    function simulateMatching() {
+        if (generatedSpans.length === 0) {
+            document.getElementById('g2-matching-table').innerHTML = '<p class="placeholder-text">Gere os spans primeiro (Seção 4).</p>';
+            return;
+        }
+
+        const classesRaw = document.getElementById('g2-classes').value;
+        const classes = classesRaw.split('\n').map(c => c.trim()).filter(c => c.length > 0);
+        const threshold = parseInt(document.getElementById('g2-threshold').value) / 100;
+        const text = document.getElementById('g2-text').value;
+        const tokens = text.split(/\s+/).filter(t => t.length > 0);
+
+        // Simulate similarity scores (pseudo dot product based on heuristics)
+        const KNOWN = {
+            'pessoa': ['santos', 'dumont', 'neymar', 'lula', 'luiz', 'inácio', 'silva', 'hilton', 'paris hilton', 'vinci', 'da vinci', 'santos dumont', 'neymar jr'],
+            'local': ['paris', 'brasil', 'são paulo', 'louvre', 'jordânia', 'arábia saudita', 'rio de janeiro'],
+            'organização': ['apple', 'apple inc', 'stf', 'petrobras', 'bndes', 'aeroclube', 'al-hilal', 'ministério da saúde', 'chicago bulls'],
+            'data': ['2024', '2023', 'março', 'setembro', 'janeiro', 'agosto', 'março de 2024', 'setembro de 2024'],
+            'empresa': ['apple', 'apple inc', 'petrobras', 'bndes'],
+            'produto': ['iphone', 'iphone 16', 'vacina'],
+            'atleta': ['neymar', 'neymar jr', 'jordan'],
+            'time': ['al-hilal', 'chicago bulls'],
+            'estádio': ['king fahd'],
+            'doença': ['covid-19', 'covid'],
+            'medicamento': ['vacina'],
+            'órgão': ['ministério da saúde', 'stf'],
+            'artista': ['da vinci', 'vinci'],
+            'obra': ['mona lisa'],
+            'museu': ['louvre'],
+        };
+
+        let tableHtml = '<table style="width: 100%; border-collapse: collapse; font-family: \'JetBrains Mono\', monospace; font-size: 0.72rem;">';
+        tableHtml += '<thead><tr><th style="padding: 6px 8px; text-align: left; border-bottom: 2px solid var(--border); color: var(--text-muted); position: sticky; top: 0; background: var(--bg-card-3);">Span</th>';
+        for (const cls of classes) {
+            tableHtml += `<th style="padding: 6px 8px; text-align: center; border-bottom: 2px solid var(--border); color: #a78bfa; position: sticky; top: 0; background: var(--bg-card-3);">${escapeHtml(cls)}</th>`;
+        }
+        tableHtml += '</tr></thead><tbody>';
+
+        const detected = [];
+
+        for (const span of generatedSpans) {
+            tableHtml += '<tr>';
+            tableHtml += `<td style="padding: 4px 8px; border-bottom: 1px solid var(--border); color: var(--text-primary); font-weight: 500; white-space: nowrap;">"${escapeHtml(span.text)}"</td>`;
+
+            for (const cls of classes) {
+                // Compute simulated score
+                let score = 0.05 + Math.random() * 0.15; // base noise
+                const clsLower = cls.toLowerCase();
+                const spanLower = span.text.toLowerCase();
+
+                if (KNOWN[clsLower]) {
+                    for (const known of KNOWN[clsLower]) {
+                        if (spanLower === known || spanLower.includes(known) || known.includes(spanLower)) {
+                            score = 0.65 + Math.random() * 0.30;
+                            break;
+                        }
+                    }
+                }
+
+                // Capital letters boost for person/local
+                if (['pessoa', 'local', 'organização', 'empresa', 'atleta', 'artista'].includes(clsLower)) {
+                    if (span.text[0] === span.text[0].toUpperCase() && span.text[0] !== span.text[0].toLowerCase()) {
+                        score = Math.max(score, 0.25 + Math.random() * 0.15);
+                    }
+                }
+
+                const isAbove = score >= threshold;
+                const bgColor = isAbove ? 'rgba(52, 211, 153, 0.15)' : 'transparent';
+                const textColor = isAbove ? 'var(--accent-green)' : 'var(--text-muted)';
+                const fontWeight = isAbove ? '700' : '400';
+
+                tableHtml += `<td style="padding: 4px 8px; border-bottom: 1px solid var(--border); text-align: center; background: ${bgColor}; color: ${textColor}; font-weight: ${fontWeight};">${score.toFixed(3)}</td>`;
+
+                if (isAbove) {
+                    detected.push({ span: span.text, cls, score });
+                }
+            }
+            tableHtml += '</tr>';
+        }
+        tableHtml += '</tbody></table>';
+
+        document.getElementById('g2-matching-table').innerHTML = tableHtml;
+
+        // Show detected entities
+        const detectedContainer = document.getElementById('g2-detected');
+        if (detected.length === 0) {
+            detectedContainer.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">Nenhuma entidade acima do threshold.</span>';
+        } else {
+            // Deduplicate: keep best score per span
+            const best = new Map();
+            for (const d of detected) {
+                const key = d.span;
+                if (!best.has(key) || best.get(key).score < d.score) {
+                    best.set(key, d);
+                }
+            }
+
+            let chipHtml = '';
+            for (const [, d] of best) {
+                chipHtml += `<span class="entity-chip ent-per" style="background: rgba(147,51,234,0.15); border: 1px solid rgba(147,51,234,0.3); color: #a78bfa;">
+          <strong>${escapeHtml(d.span)}</strong>
+          <span style="opacity: 0.7; font-size: 0.7rem;">${escapeHtml(d.cls)} (${(d.score * 100).toFixed(0)}%)</span>
+        </span>`;
+            }
+            detectedContainer.innerHTML = chipHtml;
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Utilities
+    // ---------------------------------------------------------------
+    function escapeHtml(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // Init
+    document.addEventListener('DOMContentLoaded', () => {
+        updateEncoding();
+    });
+</script>
+{% endblock %}

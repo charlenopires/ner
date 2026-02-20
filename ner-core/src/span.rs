@@ -79,7 +79,7 @@ impl SpanModel {
         tag_set.insert("O".to_string());
         
         for s in corpus {
-            for (i, (word, tag)) in s.annotations.iter().enumerate() {
+            for (_i, (_word, tag)) in s.annotations.iter().enumerate() {
                 if tag != &"O" {
                     let clean_tag = tag.trim_start_matches("B-").trim_start_matches("I-");
                     tag_set.insert(clean_tag.to_string());
